@@ -70,7 +70,13 @@ public class Parser
 
     public class NodeStmt
     {
-        public OneOf<NodeStmtExit, NodeStmtLet, NodeScope, NodeStmtPrint, NodeStmtIf> var;
+        public OneOf<NodeStmtExit, NodeStmtLet, NodeScope, NodeStmtPrint, NodeStmtIf, NodeStmtAssign> var;
+    }
+
+    public class NodeStmtAssign
+    {
+        public Token ident;
+        public required NodeExpr expr;
     }
 
     public class NodeStmtExit
@@ -421,9 +427,25 @@ public class Parser
             }
             else if (peek() is Token t3 && t3.type == TokenType.else_)
             {
-                    Console.Error.WriteLine("There is an else with no if attached to it");
+                Console.Error.WriteLine("There is an else with no if attached to it");
+                Environment.Exit(1);
+                return null;
+            }
+            else if (token.type == TokenType.ident && peek(1) is Token token6 && token6.type == TokenType.eq)
+            {
+                var ident = consume();
+                consume();
+                if (parse_expr() is var expr && expr != null)
+                {
+                    try_consume_err(TokenType.semi);
+                    return new NodeStmt { var = new NodeStmtAssign() { ident = ident, expr = expr } };
+                }
+                else
+                {
+                    Console.Error.WriteLine("Invalid Expression");
                     Environment.Exit(1);
                     return null;
+                }
             }
             else
             {

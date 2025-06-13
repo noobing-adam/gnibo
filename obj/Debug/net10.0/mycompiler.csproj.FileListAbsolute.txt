@@ -32,3 +32,4 @@ C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this
 C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.pdb
 C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.genruntimeconfig.cache
 C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\ref\mycompiler.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.sourcelink.json

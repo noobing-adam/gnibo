@@ -285,6 +285,23 @@ class Generator
             }
             return miniout;
         }
+        else if (stmt.var.TryPickT5(out var assign, out _))
+        {
+            var ident = vars.Find(x => x.name == assign.ident.value);
+            if (ident != null)
+            {
+                miniout += gen_expr(assign.expr);
+                miniout += pop("rax");
+                miniout += "    mov [rsp + " + (stack_size - vars[ident.stack_loc].stack_loc - 1) * 8 + "], rax\n";
+                return miniout;
+            }
+            else
+            {
+                Console.WriteLine("Identifier " + assign.ident.value + " not declared");
+                Environment.Exit(1);
+                return null;
+            }
+        }
         else
         {
             Console.Error.WriteLine("Invalid Statement");
