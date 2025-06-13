@@ -85,8 +85,8 @@ class Generator
             if (term_ident.ident.value == null) return miniout;
             if (vars.Find(x => x.name == term_ident.ident.value) is Var ident)
             {
-                miniout += "    mov rax, QWORD [rsp + " + (stack_size - vars[ident.stack_loc].stack_loc - 1) * 8 + "]\n";
-                miniout += push("QWORD [rsp + " + (stack_size - vars[ident.stack_loc].stack_loc - 1) * 8 + "]");
+                miniout += "    mov rax, QWORD [rsp + " + (stack_size - ident.stack_loc - 1) * 8 + "]\n";
+                miniout += push("QWORD [rsp + " + (stack_size - ident.stack_loc - 1) * 8 + "]");
             }
             else
             {
@@ -197,17 +197,53 @@ class Generator
         return miniout;
     }
 
+    public string gen_check(Parser.NodeCheck check, string label)
+    {
+        string miniout = "";
+        if (check.rhs == null)
+        {
+            miniout += gen_expr(check.lhs);
+            miniout += pop("rax");
+            miniout += "    test rax, rax\n";
+            miniout += "    jz " + label + "\n";
+            return miniout;
+        }
+        miniout += gen_expr(check.lhs);
+        miniout += gen_expr(check.rhs);
+        miniout += pop("rbx");
+        miniout += pop("rax");
+        miniout += "    cmp rax, rbx\n";
+        if (check.op == "eqeq")
+        {
+            miniout += "    jne " + label + "\n";
+        }
+        else if (check.op == "gteq")
+        {
+            miniout += "    jl " + label + "\n";
+        }
+        else if (check.op == "lteq")
+        {
+            miniout += "    jg " + label + "\n";
+        }
+        else if (check.op == "lt")
+        {
+            miniout += "    jge " + label + "\n";
+        }
+        else if (check.op == "gt")
+        {
+            miniout += "    jle " + label + "\n";
+        }
+            return miniout;       
+    }
+
 
     public string gen_if_pred(Parser.NodeIfPred pred, string end_label)
     {
         string miniout = "";
         if (pred.if_ != null)
         {
-            miniout += gen_expr(pred.if_.expr);
-            miniout += pop("rax");
             string label = create_label();
-            miniout += "    test rax, rax\n";
-            miniout += "    jz " + label + "\n";
+            miniout += gen_check(pred.if_.expr, label);
             miniout += gen_stmt(pred.if_.stmt);
             if (pred.if_.pred != null)
             {
@@ -270,11 +306,8 @@ class Generator
         }
         else if (stmt.var.TryPickT4(out var if_, out _))
         {
-            miniout += gen_expr(if_.expr);
-            miniout += pop("rax");
             string label = create_label();
-            miniout += "    test rax, rax\n";
-            miniout += "    jz " + label + "\n";
+            miniout += gen_check(if_.expr, label);
             miniout += gen_stmt(if_.stmt);
             if (if_.pred != null)
             {
@@ -297,7 +330,7 @@ class Generator
             {
                 miniout += gen_expr(assign.expr);
                 miniout += pop("rax");
-                miniout += "    mov [rsp + " + (stack_size - vars[ident.stack_loc].stack_loc - 1) * 8 + "], rax\n";
+                miniout += "    mov [rsp + " + (stack_size - ident.stack_loc - 1) * 8 + "], rax\n";
                 return miniout;
             }
             else

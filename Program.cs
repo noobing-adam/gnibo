@@ -13,6 +13,8 @@ public enum TokenType
     close_paren,
     let,
     eq,
+    gt,
+    lt,
     plus,
     minus,
     star,

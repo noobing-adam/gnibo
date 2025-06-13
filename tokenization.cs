@@ -79,6 +79,16 @@ public class Tokenizer
                 tokens.Add(new Token() { type = TokenType.eq, line = line  });
                 consume();
             }
+            else if (c == '>')
+            {
+                tokens.Add(new Token() { type = TokenType.gt, line = line  });
+                consume();
+            }
+            else if (c == '<')
+            {
+                tokens.Add(new Token() { type = TokenType.lt, line = line  });
+                consume();
+            }
             else if (c == '+')
             {
                 tokens.Add(new Token() { type = TokenType.plus, line = line  });

@@ -1,4 +1,5 @@
 using OneOf;
+using OneOf.Types;
 
 public class Parser
 {
@@ -107,7 +108,7 @@ public class Parser
 
     public class NodeStmtIf
     {
-        public required NodeExpr expr;
+        public required NodeCheck expr;
         public required NodeStmt stmt;
         public NodeIfPred? pred;
     }
@@ -133,7 +134,12 @@ public class Parser
         public OneOf<NodeTerm, NodeBinExpr> var;
     }
 
-
+    public class NodeCheck
+    {
+        public required NodeExpr lhs;
+        public NodeExpr? rhs;
+        public string? op;
+    }
     public Parser(List<Token> tokens)
     {
         _tokens = tokens;
@@ -257,7 +263,7 @@ public class Parser
             if (try_consume(TokenType.if_) != null)
             {
                 Token? t2 = try_consume_err(TokenType.open_paren);
-                if (parse_expr() is var expr && expr != null)
+                if (parse_check(new NodeExpr()) is var expr && expr != null)
                 {
                     Token? t1 = try_consume_err(TokenType.close_paren);
                     if (parse_stmt() is var stmt && stmt != null)
@@ -297,6 +303,40 @@ public class Parser
             }
         }
         return null;
+    }
+
+
+    public NodeCheck? parse_check(NodeExpr expr)
+    {
+        if (expr.var.Value == null)
+        {
+            var expre = parse_expr();
+            if (expre == null) return null; 
+            expr = expre;
+        }
+        if (expr == null) return null;
+        NodeCheck check = new NodeCheck() { lhs = expr };
+        var op = peek();
+        var op2 = peek(1);
+        if (op == null || (op.Value.type != TokenType.eq && op.Value.type != TokenType.gt && op.Value.type != TokenType.lt)) return check;
+        string oper = op.Value.type.ToString();
+        consume();
+        if (op2 == null)
+        {
+            Console.WriteLine("Expected expression at line " + op.Value.line);
+            Environment.Exit(1);
+            return null;
+        }
+        if (op2.Value.type == TokenType.eq || op2.Value.type == TokenType.gt || op2.Value.type == TokenType.lt)
+        {
+            oper += op2.Value.type.ToString();
+            consume();
+        }
+        check.op = oper;
+        var expr2 = parse_expr();
+        if (expr2 == null) return check;
+        check.rhs = expr2;
+        return check;
     }
 
     public NodeStmt? parse_stmt()
@@ -398,9 +438,9 @@ public class Parser
             }
             else if (try_consume(TokenType.if_) != null)
             {
-                Token? t1 =try_consume_err(TokenType.open_paren);
+                Token? t1 = try_consume_err(TokenType.open_paren);
                 if (t1 == null) return null;
-                if (parse_expr() is var expr)
+                if (parse_check(new NodeExpr()) is var expr)
                 {
                     if (expr == null)
                     {
@@ -459,6 +499,7 @@ public class Parser
                 }
                 else
                 {
+                    parse_check(new NodeExpr() { var = new NodeTerm { var = new NodeTermIdent { ident = token } } });
                     Console.Error.WriteLine("Invalid Expression on line " + token6.line);
                     Environment.Exit(1);
                     return null;
@@ -469,7 +510,7 @@ public class Parser
                 Console.Error.WriteLine("Invalid Statement on line " + token.line);
                 if (peek() is Token t4 && t4.type == TokenType.ident)
                 {
-                Console.Error.WriteLine("Possibly a spelling mistake: " + t4.value);
+                    Console.Error.WriteLine("Possibly a spelling mistake: " + t4.value);
                 }
                 Environment.Exit(1);
                 return null;
