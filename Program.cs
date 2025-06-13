@@ -24,7 +24,9 @@ public enum TokenType
     if_,
     else_,
     while_,
-    for_
+    for_,
+    and,
+    or
 }
 
 public struct Token

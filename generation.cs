@@ -197,40 +197,64 @@ class Generator
         return miniout;
     }
 
-    public string gen_check(Parser.NodeCheck check, string label, bool isNegated = false)
+    public string gen_checks(List<Parser.NodeCheck> checks, string label, string start = "not", bool isNegated = false)
     {
-    string miniout = "";
-
-    if (check.rhs == null)
-    {
-        miniout += gen_expr(check.lhs);
-        miniout += pop("rax");
-        miniout += "    test rax, rax\n";
-        miniout += (isNegated ? "    jnz " : "    jz ") + label + "\n";
-        return miniout;
-    }
-
-    miniout += gen_expr(check.lhs);
-    miniout += gen_expr(check.rhs);
-    miniout += pop("rbx");
-    miniout += pop("rax");
-    miniout += "    cmp rax, rbx\n";
-
-    var jumpMap = new Dictionary<string, (string normal, string negated)>
-    {
-        { "eqeq", ("jne", "je") },
-        { "gteq", ("jl", "jge") },
-        { "lteq", ("jg", "jle") },
-        { "lt",   ("jge", "jl") },
-        { "gt",   ("jle", "jg") }
-    };
-
-    if (jumpMap.TryGetValue(check.op!, out var jumps))
-    {
-        miniout += "    " + (isNegated ? jumps.negated : jumps.normal) + " " + label + "\n";
-    }
-
+        string miniout = "";
+        for (int i = 0; i < checks.Count; i++)
+        {
+            Parser.NodeCheck check = checks[i];
+            if (i == 0 || check.type == "and")
+            {
+                miniout += gen_check(check, label, isNegated, "and", start);
+            }
+            else
+            {
+                miniout += gen_check(check, label, isNegated, "or", start);
+                miniout += start + ":\n";
+            }
+        }
     return miniout;
+    }
+
+    public string gen_check(Parser.NodeCheck check, string label, bool isNegated = false, string type = "and", string start = "")
+    {
+        string miniout = "";
+        if (check.rhs == null)
+        {
+            miniout += gen_expr(check.lhs);
+            miniout += pop("rax");
+            miniout += "    test rax, rax\n";
+            if (type == "and")
+                miniout += (isNegated ? "    jnz " : "    jz ") + label + "\n";
+            else
+                miniout += (isNegated ? "    jz " : "    jnz ") + start + "\n";
+        }
+        else
+        {
+            miniout += gen_expr(check.lhs);
+            miniout += gen_expr(check.rhs);
+            miniout += pop("rbx");
+            miniout += pop("rax");
+            miniout += "    cmp rax, rbx\n";
+
+            var jumpMap = new Dictionary<string, (string normal, string negated)>
+            {
+            { "eqeq", ("jne", "je") },
+            { "gteq", ("jl", "jge") },
+            { "lteq", ("jg", "jle") },
+            { "lt",   ("jge", "jl") },
+            { "gt",   ("jle", "jg") }
+            };
+
+            if (jumpMap.TryGetValue(check.op!, out var jumps))
+            {
+                if (type == "and")
+                    miniout += "    " + (isNegated ? jumps.negated : jumps.normal) + " " + label + "\n";
+                else
+                    miniout += "    " + (isNegated ? jumps.normal : jumps.negated) + " " + start + "\n";
+            }
+        }
+        return miniout;
     }
 
 
@@ -240,7 +264,8 @@ class Generator
         if (pred.if_ != null)
         {
             string label = create_label();
-            miniout += gen_check(pred.if_.expr, label);
+            string strt = create_label();
+            miniout += gen_checks(pred.if_.checks, label, strt);
             miniout += gen_stmt(pred.if_.stmt);
             if (pred.if_.pred != null)
             {
@@ -304,7 +329,8 @@ class Generator
         else if (stmt.var.TryPickT4(out var if_, out _))
         {
             string label = create_label();
-            miniout += gen_check(if_.expr, label);
+            string strt = create_label();
+            miniout += gen_checks(if_.checks, label, strt);
             miniout += gen_stmt(if_.stmt);
             if (if_.pred != null)
             {
@@ -341,11 +367,12 @@ class Generator
         {
             string label = create_label();
             string ifnot = create_label();
+            string strt = create_label();
 
             miniout += ifnot + ":\n";
-            miniout += gen_check(while_.expr, label);
+            miniout += gen_checks(while_.checks, label);
             miniout += gen_stmt(while_.stmt);
-            miniout += gen_check(while_.expr, ifnot, true);
+            miniout += gen_checks(while_.checks, ifnot, strt,true);
             miniout += label + ":\n";
             return miniout;
         }
@@ -353,13 +380,14 @@ class Generator
         {
             string label = create_label();
             string ifnot = create_label();
+            string strt = create_label();
 
             miniout += gen_stmt(for_.let);
             miniout += ifnot + ":\n";
-            miniout += gen_check(for_.check, label);
+            miniout += gen_checks(for_.checks, label);
             miniout += gen_stmt(for_.stmt);
             miniout += gen_stmt(for_.assign);
-            miniout += gen_check(for_.check, ifnot, true);
+            miniout += gen_checks(for_.checks, ifnot, strt, true);
             scopes.Add(1);
             miniout += end_scope();
             miniout += label + ":\n";

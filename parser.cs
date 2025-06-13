@@ -10,7 +10,9 @@ public class Parser
         {TokenType.close_paren, "')'"},
         {TokenType.open_curly, "'{'"},
         {TokenType.close_curly, "'}'"},
-        {TokenType.eq, "'='"}
+        {TokenType.eq, "'='"},
+        {TokenType.and, "and"},
+        {TokenType.or, "or"},
     };
 
     private List<Token> _tokens;
@@ -107,21 +109,21 @@ public class Parser
 
     public class NodeStmtIf
     {
-        public required NodeCheck expr;
+        public required List<NodeCheck> checks;
         public required NodeStmt stmt;
         public NodeIfPred? pred;
     }
 
     public class NodeStmtWhile
     {
-        public required NodeCheck expr;
+        public required List<NodeCheck> checks;
         public required NodeStmt stmt;
     }
 
     public class NodeStmtFor
     {
         public required NodeStmt let;
-        public required NodeCheck check;
+        public required List<NodeCheck> checks;
         public required NodeStmt assign;
         public required NodeStmt stmt;
     }
@@ -152,6 +154,7 @@ public class Parser
         public required NodeExpr lhs;
         public NodeExpr? rhs;
         public string? op;
+        public string? type;
     }
     public Parser(List<Token> tokens)
     {
@@ -276,12 +279,12 @@ public class Parser
             if (try_consume(TokenType.if_) != null)
             {
                 Token? t2 = try_consume_err(TokenType.open_paren);
-                if (parse_check(new NodeExpr()) is var expr && expr != null)
+                if (parse_checks(new NodeExpr()) is var checks && checks != null)
                 {
                     Token? t1 = try_consume_err(TokenType.close_paren);
                     if (parse_stmt() is var stmt && stmt != null)
                     {
-                        NodeIfPred if_pred = new NodeIfPred() { if_ = new NodeStmtIf() { expr = expr, stmt = stmt, pred = parse_if_pred() } };
+                        NodeIfPred if_pred = new NodeIfPred() { if_ = new NodeStmtIf() { checks = checks, stmt = stmt, pred = parse_if_pred() } };
                         return if_pred;
                     }
                     else
@@ -318,6 +321,23 @@ public class Parser
         return null;
     }
 
+
+    public List<NodeCheck>? parse_checks(NodeExpr expr)
+    {
+        NodeCheck? check = parse_check(expr);
+        if (check == null) return null;
+        List<NodeCheck> checks = new List<NodeCheck>() { check };
+        while (try_consume(TokenType.and).HasValue || try_consume(TokenType.or).HasValue)
+        {
+            Token t = _tokens[index - 1];
+            if (parse_check(new NodeExpr()) is var check2 && check2 != null)
+            {
+                check2.type = tm[t.type];
+                checks.Add(check2);
+            }
+        }
+            return checks;
+    }
 
     public NodeCheck? parse_check(NodeExpr expr)
     {
@@ -453,11 +473,11 @@ public class Parser
             {
                 Token? t1 = try_consume_err(TokenType.open_paren);
                 if (t1 == null) return null;
-                if (parse_check(new NodeExpr()) is var expr)
+                if (parse_checks(new NodeExpr()) is var checks)
                 {
-                    if (expr == null)
+                    if (checks == null)
                     {
-                        Console.Error.WriteLine("Invalid Expression on line " + t1.Value.line);
+                        Console.Error.WriteLine("Invalid Check on line " + t1.Value.line);
                         Environment.Exit(1);
                         return null;
                     }
@@ -474,11 +494,11 @@ public class Parser
                         var if_pred = parse_if_pred();
                         if (if_pred != null)
                         {
-                            return new NodeStmt { var = new NodeStmtIf() { expr = expr, stmt = stmt, pred = if_pred } };
+                            return new NodeStmt { var = new NodeStmtIf() { checks = checks, stmt = stmt, pred = if_pred } };
                         }
                         else
                         {
-                            return new NodeStmt { var = new NodeStmtIf() { expr = expr, stmt = stmt } };
+                            return new NodeStmt { var = new NodeStmtIf() { checks = checks, stmt = stmt } };
                         }
                     }
                     else
@@ -512,7 +532,7 @@ public class Parser
                 }
                 else
                 {
-                    parse_check(new NodeExpr() { var = new NodeTerm { var = new NodeTermIdent { ident = token } } });
+                    parse_checks(new NodeExpr() { var = new NodeTerm { var = new NodeTermIdent { ident = token } } });
                     Console.Error.WriteLine("Invalid Expression on line " + token6.line);
                     Environment.Exit(1);
                     return null;
@@ -522,8 +542,8 @@ public class Parser
             {
                 consume();
                 try_consume_err(TokenType.open_paren);
-                var check = parse_check(new NodeExpr());
-                if (check == null)
+                var checks = parse_checks(new NodeExpr());
+                if (checks == null)
                 {
                     Console.Error.WriteLine("Invalid Check in while loop on line " + token.line);
                     Environment.Exit(1);
@@ -533,7 +553,7 @@ public class Parser
                 if (parse_stmt() is var stmt && stmt != null)
                 {
                     if (!stmt.var.IsT2) Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
-                    return new NodeStmt { var = new NodeStmtWhile() { expr = check, stmt = stmt } };
+                    return new NodeStmt { var = new NodeStmtWhile() { checks = checks, stmt = stmt } };
                 }
                 return null;
             }
@@ -548,8 +568,8 @@ public class Parser
                     Environment.Exit(1);
                     return null;
                 }
-                var check = parse_check(new NodeExpr());
-                if (check == null)
+                var checks = parse_checks(new NodeExpr());
+                if (checks == null)
                 {
                     Console.Error.WriteLine("Invalid Check in for loop on line " + token.line);
                     Environment.Exit(1);
@@ -571,7 +591,7 @@ public class Parser
                     Environment.Exit(1);
                     return null;
                 }
-                return new NodeStmt { var = new NodeStmtFor() { let = identstmt, check = check, assign = assignstmt, stmt = stmt } };
+                return new NodeStmt { var = new NodeStmtFor() { let = identstmt, checks = checks, assign = assignstmt, stmt = stmt } };
             }
             else
             {
