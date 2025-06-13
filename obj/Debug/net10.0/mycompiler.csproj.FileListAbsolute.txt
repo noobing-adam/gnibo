@@ -1,0 +1,34 @@
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\bin\Debug\net10.0\mycompiler.exe
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\bin\Debug\net10.0\mycompiler.deps.json
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\bin\Debug\net10.0\mycompiler.runtimeconfig.json
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\bin\Debug\net10.0\mycompiler.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\bin\Debug\net10.0\mycompiler.pdb
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.AssemblyInfoInputs.cache
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.AssemblyInfo.cs
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.csproj.CoreCompileInputs.cache
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\refint\mycompiler.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.pdb
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.genruntimeconfig.cache
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\ref\mycompiler.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.csproj.AssemblyReference.cache
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\bin\Debug\net10.0\OneOf.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler\obj\Debug\net10.0\mycompiler.csproj.Up2Date
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\bin\Debug\net10.0\mycompiler.exe
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\bin\Debug\net10.0\mycompiler.deps.json
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\bin\Debug\net10.0\mycompiler.runtimeconfig.json
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\bin\Debug\net10.0\mycompiler.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\bin\Debug\net10.0\mycompiler.pdb
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\bin\Debug\net10.0\OneOf.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.csproj.AssemblyReference.cache
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.AssemblyInfoInputs.cache
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.AssemblyInfo.cs
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.csproj.CoreCompileInputs.cache
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.csproj.Up2Date
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\refint\mycompiler.dll
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.pdb
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\mycompiler.genruntimeconfig.cache
+C:\Users\aliha\Desktop\My Projects\I don't think i have the knowledge to do this\mycompiler - Kopya\obj\Debug\net10.0\ref\mycompiler.dll
