@@ -209,11 +209,16 @@ class Generator
             miniout += "    test rax, rax\n";
             miniout += "    jz " + label + "\n";
             miniout += gen_stmt(pred.if_.stmt);
-            miniout += "    jmp " + end_label + "\n";
             if (pred.if_.pred != null)
             {
+                miniout += "    jmp " + end_label + "\n";
                 miniout += label + ":\n";
                 miniout += gen_if_pred(pred.if_.pred, end_label);
+                miniout += end_label + ":\n";
+            }
+            else
+            {
+                miniout += label + ":\n";
             }
         }
         else
@@ -265,7 +270,6 @@ class Generator
         }
         else if (stmt.var.TryPickT4(out var if_, out _))
         {
-            string end_label = "";
             miniout += gen_expr(if_.expr);
             miniout += pop("rax");
             string label = create_label();
@@ -274,14 +278,15 @@ class Generator
             miniout += gen_stmt(if_.stmt);
             if (if_.pred != null)
             {
-                end_label = create_label();
-                miniout += "    jnz " + end_label + "\n";
-            }
-            miniout += label + ":\n";
-            if (if_.pred != null)
-            {
+                string end_label = create_label();
+                miniout += "    jmp " + end_label + "\n";
+                miniout += label + ":\n";
                 miniout += gen_if_pred(if_.pred, end_label);
                 miniout += end_label + ":\n";
+            }
+            else
+            {
+                miniout += label + ":\n";
             }
             return miniout;
         }

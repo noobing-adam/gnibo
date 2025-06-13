@@ -450,6 +450,10 @@ public class Parser
             else
             {
                 Console.Error.WriteLine("Invalid Statement");
+                if (peek() is Token t4 && t4.type == TokenType.ident)
+                {
+                Console.Error.WriteLine("Possibly a writing error: " + t4.value);
+                }
                 Environment.Exit(1);
                 return null;
             }
@@ -473,7 +477,7 @@ public class Parser
             }
             else
             {
-                Console.Error.WriteLine("Invalid Statement");
+                Console.Error.WriteLine("Invalid Program");
                 Environment.Exit(1);
                 return null;
             }
