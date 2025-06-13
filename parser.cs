@@ -1,8 +1,18 @@
-using Microsoft.VisualBasic;
 using OneOf;
 
 public class Parser
 {
+
+    Dictionary<TokenType, string> tm = new Dictionary<TokenType, string>()
+    {
+        {TokenType.semi, "';'"},
+        {TokenType.open_paren, "'('"},
+        {TokenType.close_paren, "')'"},
+        {TokenType.open_curly, "'{'"},
+        {TokenType.close_curly, "'}'"},
+        {TokenType.eq, "'='"}
+    };
+
     private List<Token> _tokens;
     private int index = 0;
 
@@ -140,12 +150,12 @@ public class Parser
         {
             return new NodeTerm() { var = new NodeTermIdent { ident = token2 } };
         }
-        else if (try_consume(TokenType.open_paren).HasValue)
+        else if (try_consume(TokenType.open_paren) is Token t2)
         {
             var expr = parse_expr();
             if (expr == null)
             {
-                Console.WriteLine("Expected expression inside the parentheses");
+                Console.WriteLine("Expected expression inside the parentheses on line " + t2.line);
                 Environment.Exit(1);
                 return null;
             }
@@ -182,7 +192,7 @@ public class Parser
             var expr_rhs = parse_expr(next_min_prec);
             if (expr_rhs == null)
             {
-                Console.WriteLine("Expected integer or identifier after operator");
+                Console.WriteLine("Expected integer or identifier after operator on line " + op.line);
                 Environment.Exit(1);
             }
             NodeBinExpr expr = new NodeBinExpr();
@@ -242,14 +252,14 @@ public class Parser
 
     public NodeIfPred? parse_if_pred()
     {
-        if (try_consume(TokenType.else_) != null)
+        if (try_consume(TokenType.else_) is Token t3)
         {
             if (try_consume(TokenType.if_) != null)
             {
-                try_consume_err(TokenType.open_paren);
+                Token? t2 = try_consume_err(TokenType.open_paren);
                 if (parse_expr() is var expr && expr != null)
                 {
-                    try_consume_err(TokenType.close_paren);
+                    Token? t1 = try_consume_err(TokenType.close_paren);
                     if (parse_stmt() is var stmt && stmt != null)
                     {
                         NodeIfPred if_pred = new NodeIfPred() { if_ = new NodeStmtIf() { expr = expr, stmt = stmt, pred = parse_if_pred() } };
@@ -257,14 +267,16 @@ public class Parser
                     }
                     else
                     {
-                        Console.WriteLine("Expected scope");
+                        if (!t1.HasValue) return null;
+                        Console.WriteLine("Expected statement or scope on line " + t1.Value.line);
                         Environment.Exit(1);
                         return null;
                     }
                 }
                 else
                 {
-                    Console.WriteLine("Expected expression inside the parentheses");
+                    if (!t2.HasValue) return null;
+                    Console.WriteLine("Expected expression inside the parentheses on line " + t2.Value.line);
                     Environment.Exit(1);
                     return null;
                 }
@@ -278,7 +290,7 @@ public class Parser
                 }
                 else
                 {
-                    Console.WriteLine("Expected scope");
+                    Console.WriteLine("Expected statement or scope on line " + t3.line);
                     Environment.Exit(1);
                     return null;
                 }
@@ -294,20 +306,23 @@ public class Parser
             if (token.type == TokenType.exit && peek(1) is Token token2 && token2.type == TokenType.open_paren)
             {
                 consume();
-                consume();
-                NodeStmtExit stmt_exit = new NodeStmtExit();
+                Token t1 = consume();
                 if (parse_expr() is var node_expr)
                 {
-                    stmt_exit = new NodeStmtExit { expr = node_expr };
+                    if (node_expr == null)
+                    {
+                        node_expr = new NodeExpr { var = new NodeTerm() { var = new NodeTermIntLit { int_lit = new Token { type = TokenType.int_lit, value = "0", line = t1.line } } } };
+                    }
+                    try_consume_err(TokenType.close_paren);
+                    try_consume_err(TokenType.semi);
+                    return new NodeStmt { var = new NodeStmtExit { expr = node_expr } };
                 }
                 else
                 {
-                    Console.Error.WriteLine("Invalid Expression");
+                    Console.Error.WriteLine("Invalid Expression on line " + t1.line);
                     Environment.Exit(1);
+                    return null;
                 }
-                try_consume_err(TokenType.close_paren);
-                try_consume_err(TokenType.semi);
-                return new NodeStmt { var = stmt_exit };
             }
             else if (token.type == TokenType.let && peek(1) is Token token3 && token3.type == TokenType.ident && peek(2) is Token token4 && token4.type == TokenType.eq)
             {
@@ -319,7 +334,7 @@ public class Parser
                 {
                     if (t1.type == TokenType.ident && stmt_let.ident.value == t1.value)
                     {
-                        Console.Error.WriteLine("Identifier " + t1.value + " has a circular definition");
+                        Console.Error.WriteLine("Identifier " + t1.value + " has a circular definition. on line " + t1.line);
                         Environment.Exit(1);
                         return null;
                     }
@@ -331,7 +346,7 @@ public class Parser
                 }
                 else
                 {
-                    Console.Error.WriteLine("Invalid Expression");
+                    Console.Error.WriteLine("Invalid Expression on line " + token4.line);
                     Environment.Exit(1);
                 }
                 try_consume_err(TokenType.semi);
@@ -345,7 +360,7 @@ public class Parser
                 }
                 else
                 {
-                    Console.Error.WriteLine("Invalid Scope");
+                    Console.Error.WriteLine("Invalid Scope on line " + token.line);
                     Environment.Exit(1);
                     return null;
                 }
@@ -354,11 +369,11 @@ public class Parser
             {
                 if (peek(-1) is Token cc && cc.type == TokenType.open_curly)
                 {
-                    Console.Error.WriteLine("Empty Scope");
+                    Console.Error.WriteLine("Empty Scope on line " + cc.line);
                 }
                 else
                 {
-                    Console.Error.WriteLine("Extra Closing Curly");
+                    Console.Error.WriteLine("Extra Closing Curly on line " + token.line);
                 }
                 Environment.Exit(1);
                 return null;
@@ -376,28 +391,30 @@ public class Parser
                 }
                 else
                 {
-                    Console.Error.WriteLine("Print currently only supports strings");
+                    Console.Error.WriteLine("Print currently only supports strings. Line " + token5.line);
                     Environment.Exit(1);
                     return null;
                 }
             }
-            else if (try_consume(TokenType.if_) is Token t2)
+            else if (try_consume(TokenType.if_) != null)
             {
-                try_consume_err(TokenType.open_paren);
+                Token? t1 =try_consume_err(TokenType.open_paren);
+                if (t1 == null) return null;
                 if (parse_expr() is var expr)
                 {
                     if (expr == null)
                     {
-                        Console.Error.WriteLine("Invalid Expression");
+                        Console.Error.WriteLine("Invalid Expression on line " + t1.Value.line);
                         Environment.Exit(1);
                         return null;
                     }
-                    try_consume_err(TokenType.close_paren);
+                    Token? t2 = try_consume_err(TokenType.close_paren);
+                    if (t2 == null) return null;
                     if (parse_stmt() is var stmt)
                     {
                         if (stmt == null)
                         {
-                            Console.Error.WriteLine("Invalid Scope");
+                            Console.Error.WriteLine("Invalid Statement on line " + t2.Value.line);
                             Environment.Exit(1);
                             return null;
                         }
@@ -413,46 +430,46 @@ public class Parser
                     }
                     else
                     {
-                        Console.Error.WriteLine("Invalid Scope");
+                        Console.Error.WriteLine("Invalid Statement on line " + t2.Value.line);
                         Environment.Exit(1);
                         return null;
                     }
                 }
                 else
                 {
-                    Console.Error.WriteLine("Invalid Expression");
+                    Console.Error.WriteLine("Invalid Expression on line " + t1.Value.line);
                     Environment.Exit(1);
                     return null;
                 }
             }
             else if (peek() is Token t3 && t3.type == TokenType.else_)
             {
-                Console.Error.WriteLine("There is an else with no if attached to it");
+                Console.Error.WriteLine("There is an else with no if attached to it on line " + t3.line);
                 Environment.Exit(1);
                 return null;
             }
             else if (token.type == TokenType.ident && peek(1) is Token token6 && token6.type == TokenType.eq)
             {
-                var ident = consume();
+                consume();
                 consume();
                 if (parse_expr() is var expr && expr != null)
                 {
                     try_consume_err(TokenType.semi);
-                    return new NodeStmt { var = new NodeStmtAssign() { ident = ident, expr = expr } };
+                    return new NodeStmt { var = new NodeStmtAssign() { ident = token, expr = expr } };
                 }
                 else
                 {
-                    Console.Error.WriteLine("Invalid Expression");
+                    Console.Error.WriteLine("Invalid Expression on line " + token6.line);
                     Environment.Exit(1);
                     return null;
                 }
             }
             else
             {
-                Console.Error.WriteLine("Invalid Statement");
+                Console.Error.WriteLine("Invalid Statement on line " + token.line);
                 if (peek() is Token t4 && t4.type == TokenType.ident)
                 {
-                Console.Error.WriteLine("Possibly a writing error: " + t4.value);
+                Console.Error.WriteLine("Possibly a spelling mistake: " + t4.value);
                 }
                 Environment.Exit(1);
                 return null;
@@ -460,8 +477,6 @@ public class Parser
         }
         else
         {
-            Console.Error.WriteLine("Expected Statement");
-            Environment.Exit(1);
             return null;
         }
     }
@@ -507,7 +522,9 @@ public class Parser
         }
         else
         {
-            Console.WriteLine("Expected " + type);
+            var a = peek(-1);
+            if (a == null) return null;
+            Console.WriteLine("Expected " + tm[type] + " on line " + a.Value.line);
             Environment.Exit(1);
             return null;
         }

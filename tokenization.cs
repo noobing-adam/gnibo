@@ -3,6 +3,7 @@ public class Tokenizer
 {
     private string _src;
     private int index = 0;
+    private int line = 1;
 
     public Tokenizer(string src)
     {
@@ -26,26 +27,26 @@ public class Tokenizer
 
                 if (buf == "exit")
                 {
-                    tokens.Add(new Token() { type = TokenType.exit });
+                    tokens.Add(new Token() { type = TokenType.exit, line = line });
                 }
                 else if (buf == "let")
                 {
-                    tokens.Add(new Token() { type = TokenType.let });
+                    tokens.Add(new Token() { type = TokenType.let, line = line  });
                 }
                 else if (buf == "print")
                 {
-                    tokens.Add(new Token() { type = TokenType.print });
+                    tokens.Add(new Token() { type = TokenType.print, line = line  });
                 }
                 else if (buf == "if")
                 {
-                    tokens.Add(new Token() { type = TokenType.if_ });
+                    tokens.Add(new Token() { type = TokenType.if_, line = line  });
                 }
                 else if (buf == "else")
                 {
-                    tokens.Add(new Token() { type = TokenType.else_ });
+                    tokens.Add(new Token() { type = TokenType.else_, line = line  });
                 }
                 else
-                    tokens.Add(new Token() { type = TokenType.ident, value = buf });
+                    tokens.Add(new Token() { type = TokenType.ident, value = buf, line = line  });
                 buf = "";
             }
             else if (char.IsDigit(c))
@@ -55,42 +56,42 @@ public class Tokenizer
                 {
                     buf += consume();
                 }
-                tokens.Add(new Token() { type = TokenType.int_lit, value = buf });
+                tokens.Add(new Token() { type = TokenType.int_lit, value = buf, line = line  });
                 buf = "";
             }
             else if (c == ';')
             {
-                tokens.Add(new Token() { type = TokenType.semi });
+                tokens.Add(new Token() { type = TokenType.semi, line = line  });
                 consume();
             }
             else if (c == '(')
             {
-                tokens.Add(new Token() { type = TokenType.open_paren });
+                tokens.Add(new Token() { type = TokenType.open_paren, line = line  });
                 consume();
             }
             else if (c == ')')
             {
-                tokens.Add(new Token() { type = TokenType.close_paren });
+                tokens.Add(new Token() { type = TokenType.close_paren, line = line  });
                 consume();
             }
             else if (c == '=')
             {
-                tokens.Add(new Token() { type = TokenType.eq });
+                tokens.Add(new Token() { type = TokenType.eq, line = line  });
                 consume();
             }
             else if (c == '+')
             {
-                tokens.Add(new Token() { type = TokenType.plus });
+                tokens.Add(new Token() { type = TokenType.plus, line = line  });
                 consume();
             }
             else if (c == '-')
             {
-                tokens.Add(new Token() { type = TokenType.minus });
+                tokens.Add(new Token() { type = TokenType.minus, line = line  });
                 consume();
             }
             else if (c == '*')
             {
-                tokens.Add(new Token() { type = TokenType.star });
+                tokens.Add(new Token() { type = TokenType.star, line = line  });
                 consume();
             }
             else if (c == '/')
@@ -108,8 +109,10 @@ public class Tokenizer
                 else if (d == '*')
                 {
                     consume();
+                    int start_line = line;
                     while (peek() is char e && !(e == '*' && peek(1) is char z && z == '/'))
                     {
+                        if (e == '\n') line++;
                         consume();
                     }
                     if (peek() is char x && x == '*' && peek(1) is char y && y == '/')
@@ -119,24 +122,29 @@ public class Tokenizer
                     }
                     else
                     {
-                        Console.WriteLine("Unterminated comment (add */ at the end)");
+                        Console.WriteLine("Unterminated comment (add */ at line " + start_line + ")");
                         Environment.Exit(1);
                     }
                 }
                 else
                 {
-                    tokens.Add(new Token() { type = TokenType.fslash });
+                    tokens.Add(new Token() { type = TokenType.fslash, line = line  });
                     consume();
                 }
             }
             else if (c == '{')
             {
-                tokens.Add(new Token() { type = TokenType.open_curly });
+                tokens.Add(new Token() { type = TokenType.open_curly, line = line  });
                 consume();
             }
             else if (c == '}')
             {
-                tokens.Add(new Token() { type = TokenType.close_curly });
+                tokens.Add(new Token() { type = TokenType.close_curly, line = line  });
+                consume();
+            }
+            else if (c == '\n')
+            {
+                line++;
                 consume();
             }
             else if (char.IsWhiteSpace(c))
@@ -149,9 +157,10 @@ public class Tokenizer
                 while (peek() is char d && d != '"')
                 {
                     buf += consume();
+                    if (d == '\n') line++;
                 }
                 consume();
-                tokens.Add(new Token() { type = TokenType.string_lit, value = buf });
+                tokens.Add(new Token() { type = TokenType.string_lit, value = buf, line = line  });
                 buf = "";
             }
             else
