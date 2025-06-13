@@ -1,5 +1,4 @@
 using OneOf;
-using OneOf.Types;
 
 public class Parser
 {
@@ -81,7 +80,7 @@ public class Parser
 
     public class NodeStmt
     {
-        public OneOf<NodeStmtExit, NodeStmtLet, NodeScope, NodeStmtPrint, NodeStmtIf, NodeStmtAssign> var;
+        public OneOf<NodeStmtExit, NodeStmtLet, NodeScope, NodeStmtPrint, NodeStmtIf, NodeStmtAssign, NodeStmtWhile, NodeStmtFor> var;
     }
 
     public class NodeStmtAssign
@@ -111,6 +110,20 @@ public class Parser
         public required NodeCheck expr;
         public required NodeStmt stmt;
         public NodeIfPred? pred;
+    }
+
+    public class NodeStmtWhile
+    {
+        public required NodeCheck expr;
+        public required NodeStmt stmt;
+    }
+
+    public class NodeStmtFor
+    {
+        public required NodeStmt let;
+        public required NodeCheck check;
+        public required NodeStmt assign;
+        public required NodeStmt stmt;
     }
 
     public class NodeIfPred
@@ -311,7 +324,7 @@ public class Parser
         if (expr.var.Value == null)
         {
             var expre = parse_expr();
-            if (expre == null) return null; 
+            if (expre == null) return null;
             expr = expre;
         }
         if (expr == null) return null;
@@ -505,8 +518,64 @@ public class Parser
                     return null;
                 }
             }
+            else if (token.type == TokenType.while_)
+            {
+                consume();
+                try_consume_err(TokenType.open_paren);
+                var check = parse_check(new NodeExpr());
+                if (check == null)
+                {
+                    Console.Error.WriteLine("Invalid Check in while loop on line " + token.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                try_consume_err(TokenType.close_paren);
+                if (parse_stmt() is var stmt && stmt != null)
+                {
+                    if (!stmt.var.IsT2) Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
+                    return new NodeStmt { var = new NodeStmtWhile() { expr = check, stmt = stmt } };
+                }
+                return null;
+            }
+            else if (token.type == TokenType.for_)
+            {
+                consume();
+                try_consume_err(TokenType.open_paren);
+                var identstmt = parse_stmt();
+                if (identstmt == null)
+                {
+                    Console.Error.WriteLine("You have to assign a variable for the loop. Line " + token.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                var check = parse_check(new NodeExpr());
+                if (check == null)
+                {
+                    Console.Error.WriteLine("Invalid Check in for loop on line " + token.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                try_consume_err(TokenType.semi);
+                var assignstmt = parse_stmt();
+                if (assignstmt == null)
+                {
+                    Console.Error.WriteLine("You have to assign a variable for the loop. Line " + token.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                try_consume_err(TokenType.close_paren);
+                var stmt = parse_stmt();
+                if (stmt == null)
+                {
+                    Console.Error.WriteLine("Invalid Statement on line " + token.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                return new NodeStmt { var = new NodeStmtFor() { let = identstmt, check = check, assign = assignstmt, stmt = stmt } };
+            }
             else
             {
+                Console.WriteLine(peek() is Token a1 ? a1.type : "");
                 Console.Error.WriteLine("Invalid Statement on line " + token.line);
                 if (peek() is Token t4 && t4.type == TokenType.ident)
                 {
@@ -563,7 +632,7 @@ public class Parser
         }
         else
         {
-            var a = peek(-1);
+            var a = peek();
             if (a == null) return null;
             Console.WriteLine("Expected " + tm[type] + " on line " + a.Value.line);
             Environment.Exit(1);

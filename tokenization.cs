@@ -31,22 +31,30 @@ public class Tokenizer
                 }
                 else if (buf == "let")
                 {
-                    tokens.Add(new Token() { type = TokenType.let, line = line  });
+                    tokens.Add(new Token() { type = TokenType.let, line = line });
                 }
                 else if (buf == "print")
                 {
-                    tokens.Add(new Token() { type = TokenType.print, line = line  });
+                    tokens.Add(new Token() { type = TokenType.print, line = line });
                 }
                 else if (buf == "if")
                 {
-                    tokens.Add(new Token() { type = TokenType.if_, line = line  });
+                    tokens.Add(new Token() { type = TokenType.if_, line = line });
                 }
                 else if (buf == "else")
                 {
-                    tokens.Add(new Token() { type = TokenType.else_, line = line  });
+                    tokens.Add(new Token() { type = TokenType.else_, line = line });
+                }
+                else if (buf == "while")
+                {
+                    tokens.Add(new Token() { type = TokenType.while_, line = line });
+                }
+                else if (buf == "for")
+                {
+                    tokens.Add(new Token() { type = TokenType.for_, line = line });
                 }
                 else
-                    tokens.Add(new Token() { type = TokenType.ident, value = buf, line = line  });
+                    tokens.Add(new Token() { type = TokenType.ident, value = buf, line = line });
                 buf = "";
             }
             else if (char.IsDigit(c))

@@ -197,43 +197,40 @@ class Generator
         return miniout;
     }
 
-    public string gen_check(Parser.NodeCheck check, string label)
+    public string gen_check(Parser.NodeCheck check, string label, bool isNegated = false)
     {
-        string miniout = "";
-        if (check.rhs == null)
-        {
-            miniout += gen_expr(check.lhs);
-            miniout += pop("rax");
-            miniout += "    test rax, rax\n";
-            miniout += "    jz " + label + "\n";
-            return miniout;
-        }
+    string miniout = "";
+
+    if (check.rhs == null)
+    {
         miniout += gen_expr(check.lhs);
-        miniout += gen_expr(check.rhs);
-        miniout += pop("rbx");
         miniout += pop("rax");
-        miniout += "    cmp rax, rbx\n";
-        if (check.op == "eqeq")
-        {
-            miniout += "    jne " + label + "\n";
-        }
-        else if (check.op == "gteq")
-        {
-            miniout += "    jl " + label + "\n";
-        }
-        else if (check.op == "lteq")
-        {
-            miniout += "    jg " + label + "\n";
-        }
-        else if (check.op == "lt")
-        {
-            miniout += "    jge " + label + "\n";
-        }
-        else if (check.op == "gt")
-        {
-            miniout += "    jle " + label + "\n";
-        }
-            return miniout;       
+        miniout += "    test rax, rax\n";
+        miniout += (isNegated ? "    jnz " : "    jz ") + label + "\n";
+        return miniout;
+    }
+
+    miniout += gen_expr(check.lhs);
+    miniout += gen_expr(check.rhs);
+    miniout += pop("rbx");
+    miniout += pop("rax");
+    miniout += "    cmp rax, rbx\n";
+
+    var jumpMap = new Dictionary<string, (string normal, string negated)>
+    {
+        { "eqeq", ("jne", "je") },
+        { "gteq", ("jl", "jge") },
+        { "lteq", ("jg", "jle") },
+        { "lt",   ("jge", "jl") },
+        { "gt",   ("jle", "jg") }
+    };
+
+    if (jumpMap.TryGetValue(check.op!, out var jumps))
+    {
+        miniout += "    " + (isNegated ? jumps.negated : jumps.normal) + " " + label + "\n";
+    }
+
+    return miniout;
     }
 
 
@@ -339,6 +336,34 @@ class Generator
                 Environment.Exit(1);
                 return null;
             }
+        }
+        else if (stmt.var.TryPickT6(out var while_, out _))
+        {
+            string label = create_label();
+            string ifnot = create_label();
+
+            miniout += ifnot + ":\n";
+            miniout += gen_check(while_.expr, label);
+            miniout += gen_stmt(while_.stmt);
+            miniout += gen_check(while_.expr, ifnot, true);
+            miniout += label + ":\n";
+            return miniout;
+        }
+        else if (stmt.var.TryPickT7(out var for_, out _))
+        {
+            string label = create_label();
+            string ifnot = create_label();
+
+            miniout += gen_stmt(for_.let);
+            miniout += ifnot + ":\n";
+            miniout += gen_check(for_.check, label);
+            miniout += gen_stmt(for_.stmt);
+            miniout += gen_stmt(for_.assign);
+            miniout += gen_check(for_.check, ifnot, true);
+            scopes.Add(1);
+            miniout += end_scope();
+            miniout += label + ":\n";
+            return miniout;
         }
         else
         {

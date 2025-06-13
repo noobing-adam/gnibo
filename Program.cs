@@ -22,7 +22,9 @@ public enum TokenType
     open_curly,
     close_curly,
     if_,
-    else_
+    else_,
+    while_,
+    for_
 }
 
 public struct Token
