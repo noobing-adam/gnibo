@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 
 class Generator
@@ -162,11 +161,18 @@ class Generator
             return miniout;
         }
         begin_scope();
+        bool donethat = false;
         foreach (Parser.NodeStmt stmt2 in scope.stmts)
         {
+            if (stmt2 is Parser.NodeStmtReturn)
+            {
+                donethat = true;
+                miniout += gen_stmt(stmt2);
+                break;
+            }
             miniout += gen_stmt(stmt2);
         }
-        miniout += end_scope();
+        if(!donethat) miniout += end_scope();
         return miniout;
     }
 
@@ -281,7 +287,7 @@ class Generator
     {
         string miniout = "";
 
-        if (stmt.var.TryPickT0(out var exit, out _))
+        if (stmt is Parser.NodeStmtExit exit)
         {
             if (exit.expr == null) exit.expr = new Parser.NodeExpr() { var = new Parser.NodeTerm { var = new Parser.NodeTermIntLit { int_lit = new Token() { type = TokenType.int_lit, value = "0" } } } };
             miniout += gen_expr(exit.expr);
@@ -290,7 +296,7 @@ class Generator
             miniout += "    syscall\n";
             return miniout;
         }
-        else if (stmt.var.TryPickT1(out var let, out _))
+        else if (stmt is Parser.NodeStmtLet let)
         {
             if (let.ident.value == null) return miniout;
 
@@ -305,14 +311,13 @@ class Generator
             miniout += gen_expr(let.expr);
             return miniout;
         }
-        else if (stmt.var.TryPickT2(out var scope, out _))
+        else if (stmt is Parser.NodeScope scope)
         {
             miniout += gen_scope(scope);
             return miniout;
         }
-        else if (stmt.var.TryPickT3(out var print, out _))
+        else if (stmt is Parser.NodeStmtPrint print)
         {
-            if (print == null) return miniout;
             if (print.str.TryPickT0(out var str, out _))
             {
                 if (str.value == null) return miniout;
@@ -337,10 +342,10 @@ class Generator
                 miniout += "    mov rdi, 1\n";
                 miniout += "    mov rsi, buffer\n";
                 miniout += "    syscall\n";
-                }
+            }
             return miniout;
         }
-        else if (stmt.var.TryPickT4(out var if_, out _))
+        else if (stmt is Parser.NodeStmtIf if_)
         {
             string label = create_label();
             string strt = create_label();
@@ -360,7 +365,7 @@ class Generator
             }
             return miniout;
         }
-        else if (stmt.var.TryPickT5(out var assign, out _))
+        else if (stmt is Parser.NodeStmtAssign assign)
         {
             var ident = vars.Find(x => x.name == assign.ident.value);
             if (ident != null)
@@ -377,7 +382,7 @@ class Generator
                 return null;
             }
         }
-        else if (stmt.var.TryPickT6(out var while_, out _))
+        else if (stmt is Parser.NodeStmtWhile while_)
         {
             string label = create_label();
             string ifnot = create_label();
@@ -386,11 +391,11 @@ class Generator
             miniout += ifnot + ":\n";
             miniout += gen_checks(while_.checks, label);
             miniout += gen_stmt(while_.stmt);
-            miniout += gen_checks(while_.checks, ifnot, strt,true);
+            miniout += gen_checks(while_.checks, ifnot, strt, true);
             miniout += label + ":\n";
             return miniout;
         }
-        else if (stmt.var.TryPickT7(out var for_, out _))
+        else if (stmt is Parser.NodeStmtFor for_)
         {
             string label = create_label();
             string ifnot = create_label();
@@ -402,9 +407,44 @@ class Generator
             miniout += gen_stmt(for_.stmt);
             miniout += gen_stmt(for_.assign);
             miniout += gen_checks(for_.checks, ifnot, strt, true);
-            scopes.Add(vars.Count-1);
+            scopes.Add(vars.Count - 1);
             miniout += end_scope();
             miniout += label + ":\n";
+            return miniout;
+        }
+        else if (stmt is Parser.NodeStmtFunc func)
+        {
+            funcs.Add(new Tuple<Token, Parser.NodeStmt>(func.name, func.stmt));
+            return miniout;
+        }
+        else if (stmt is Parser.NodeStmtReturn ret)
+        {
+            if (ret.infunc == false)
+            {
+                Console.Error.WriteLine("Cannot return outside of function");
+                Environment.Exit(1);
+            }
+            if (ret.expr == null)
+            {
+                miniout += end_scope();
+                miniout += "    mov rax, 0\n";
+                miniout += "    ret\n";
+                return miniout;
+            }
+            miniout += gen_expr(ret.expr);
+            miniout += pop("rax");
+            miniout += end_scope();
+            miniout += "    ret\n";
+            return miniout;
+        }
+        else if (stmt is Parser.NodeStmtCall call)
+        {
+            if (call.expr != null)
+            {
+                miniout += gen_expr(call.expr);
+                miniout += pop("rax");
+            }
+            miniout += "    call " + call.ident.value + "\n";
             return miniout;
         }
         else
@@ -417,6 +457,14 @@ class Generator
     }
 
 
+    public string gen_function(Tuple<Token, Parser.NodeStmt> func)
+    {
+        string miniout = "";
+        miniout += func.Item1.value + ":\n";
+        miniout += gen_stmt(func.Item2);
+        return miniout;
+    }
+
     public string gen_prog()
     {
         string output = "section .bss\nbuffer: resb 20\n\nsection .text\nglobal _start\n_start:\n";
@@ -426,6 +474,12 @@ class Generator
         }
 
         output += "    mov rax, 60\n    mov rdi, 0\n    syscall\n";
+        foreach (Tuple<Token, Parser.NodeStmt> func in funcs)
+        {
+            stack_size += 1;
+            output += gen_function(func);
+            stack_size -= 1;
+        }
         output += """    
 int_to_string:
     ; Eğer sayı 0 ise direkt '0' ve '\n' yaz
@@ -507,6 +561,7 @@ done:
         public int stack_loc = 0;
     }
     List<Var> vars = new List<Var>();
+    List<Tuple<Token, Parser.NodeStmt>> funcs = new List<Tuple<Token, Parser.NodeStmt>>();
     List<int> scopes = new List<int>();
     int label_count = 0;
 }

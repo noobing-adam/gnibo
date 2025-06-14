@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Drawing;
 
 
 public enum TokenType
@@ -8,6 +9,7 @@ public enum TokenType
     int_lit,
     string_lit,
     semi,
+    comma,
     ident,
     open_paren,
     close_paren,
@@ -26,7 +28,9 @@ public enum TokenType
     while_,
     for_,
     and,
-    or
+    or,
+    fn,
+    return_
 }
 
 public struct Token
@@ -95,7 +99,14 @@ class Gnibo
         process.WaitForExit();
         Console.WriteLine(outpute);
         Console.WriteLine(error);
-
+        if (error.Contains("Floating point exception./out"))
+        {
+            Console.Clear();
+            Console.WriteLine("Floating point exception.");
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Error.WriteLine("Gnibo currently does not support floating point operations.");
+            Console.ResetColor();
+        }
 
         // dotnet run -- main.nob
 

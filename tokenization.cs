@@ -1,4 +1,6 @@
 
+using System.ComponentModel;
+
 public class Tokenizer
 {
     private string _src;
@@ -52,6 +54,14 @@ public class Tokenizer
                 {
                     tokens.Add(new Token() { type = TokenType.for_, line = line });
                 }
+                else if (buf == "fn")
+                {
+                    tokens.Add(new Token() { type = TokenType.fn, line = line });
+                }
+                else if (buf == "return")
+                {
+                    tokens.Add(new Token() { type = TokenType.return_, line = line });
+                }
                 else
                     tokens.Add(new Token() { type = TokenType.ident, value = buf, line = line });
                 buf = "";
@@ -69,6 +79,11 @@ public class Tokenizer
             else if (c == ';')
             {
                 tokens.Add(new Token() { type = TokenType.semi, line = line });
+                consume();
+            }
+            else if (c == ',')
+            {
+                tokens.Add(new Token() { type = TokenType.comma, line = line });
                 consume();
             }
             else if (c == '(')
@@ -146,7 +161,6 @@ public class Tokenizer
                 else
                 {
                     tokens.Add(new Token() { type = TokenType.fslash, line = line });
-                    consume();
                 }
             }
             else if (c == '{')

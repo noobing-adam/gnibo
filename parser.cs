@@ -80,47 +80,65 @@ public class Parser
         public NodeExpr? rhs;
     }
 
-    public class NodeStmt
+    public abstract class NodeStmt
     {
-        public OneOf<NodeStmtExit, NodeStmtLet, NodeScope, NodeStmtPrint, NodeStmtIf, NodeStmtAssign, NodeStmtWhile, NodeStmtFor> var;
     }
 
-    public class NodeStmtAssign
+    public class NodeStmtCall : NodeStmt
+    {
+        public required Token ident;
+        public NodeExpr? expr;
+    }
+
+    public class NodeStmtReturn : NodeStmt
+    {
+        public bool infunc;
+        public NodeExpr? expr;
+    }
+
+    public class NodeStmtAssign : NodeStmt
     {
         public Token ident;
         public required NodeExpr expr;
     }
 
-    public class NodeStmtExit
+    public class NodeStmtExit : NodeStmt
     {
         public NodeExpr? expr;
     }
 
-    public class NodeStmtPrint
+    public class NodeStmtPrint : NodeStmt
     {
         public OneOf<Token, NodeExpr> str;
     }
 
-    public class NodeStmtLet
+    public class NodeStmtLet : NodeStmt
     {
         public Token ident;
         public NodeExpr? expr;
     }
 
-    public class NodeStmtIf
+    public class NodeStmtIf : NodeStmt
     {
         public required List<NodeCheck> checks;
         public required NodeStmt stmt;
         public NodeIfPred? pred;
     }
 
-    public class NodeStmtWhile
+    public class NodeStmtWhile : NodeStmt
     {
         public required List<NodeCheck> checks;
         public required NodeStmt stmt;
     }
 
-    public class NodeStmtFor
+    public class NodeStmtFunc : NodeStmt
+    {
+        public Token name;
+        public List<Token?> args = new List<Token?>();
+        public required NodeStmt stmt;
+    }
+
+    public class NodeStmtFor : NodeStmt
     {
         public required NodeStmt let;
         public required List<NodeCheck> checks;
@@ -134,7 +152,7 @@ public class Parser
         public NodeStmt? stmt;
     }
 
-    public class NodeScope
+    public class NodeScope : NodeStmt
     {
         public List<NodeStmt>? stmts;
     }
@@ -388,7 +406,7 @@ public class Parser
                     }
                     try_consume_err(TokenType.close_paren);
                     try_consume_err(TokenType.semi);
-                    return new NodeStmt { var = new NodeStmtExit { expr = node_expr } };
+                    return new NodeStmtExit { expr = node_expr };
                 }
                 else
                 {
@@ -424,13 +442,56 @@ public class Parser
                     Environment.Exit(1);
                 }
                 try_consume_err(TokenType.semi);
-                return new NodeStmt { var = stmt_let };
+                return stmt_let;
+            }
+            else if (token.type == TokenType.fn)
+            {
+                consume();
+                var name = try_consume_err(TokenType.ident);
+                if (name == null) return null;
+                try_consume_err(TokenType.open_paren);
+                List<Token?> args = new List<Token?>();
+                var ident = try_consume(TokenType.ident);
+                while (ident != null)
+                {
+                    args.Add(ident);
+                    if (peek() is Token t2 && t2.type == TokenType.comma) consume();
+                    else break;
+                    ident = try_consume(TokenType.ident);
+                }
+                try_consume_err(TokenType.close_paren);
+                var stmt = parse_stmt();
+                if (stmt is NodeStmtReturn a) stmt = new NodeStmtReturn() { expr = a.expr, infunc = true };
+                if (stmt is NodeScope nodeScope && nodeScope.stmts != null && nodeScope.stmts.Count > 0)
+                {
+                    for (int i = 0; i < nodeScope.stmts.Count; i++)
+                    {
+                        if (nodeScope.stmts[i] is NodeStmtReturn a2) nodeScope.stmts[i] = new NodeStmtReturn() { expr = a2.expr, infunc = true };
+                    }
+                    stmt = nodeScope;
+                }
+                if (stmt == null) return null;
+                return new NodeStmtFunc() { stmt = stmt, name = (Token)name, args = args };
+            }
+            else if (token.type == TokenType.return_)
+            {
+                consume();
+                if (parse_expr() is var expr && expr != null)
+                {
+                    try_consume_err(TokenType.semi);
+                    return new NodeStmtReturn() { expr = expr };
+                }
+                else
+                {
+                    try_consume_err(TokenType.semi);
+                    return new NodeStmtReturn();
+                }
             }
             else if (token.type == TokenType.open_curly)
             {
                 if (parse_scope() is var scope && scope != null)
                 {
-                    return new NodeStmt { var = scope };
+                    return scope;
                 }
                 else
                 {
@@ -461,17 +522,17 @@ public class Parser
                     consume();
                     try_consume_err(TokenType.close_paren);
                     try_consume_err(TokenType.semi);
-                    return new NodeStmt { var = new NodeStmtPrint() { str = t1 } };
+                    return new NodeStmtPrint() { str = t1 };
                 }
                 else if (parse_expr() is var expr && expr != null)
                 {
                     try_consume_err(TokenType.close_paren);
                     try_consume_err(TokenType.semi);
-                    return new NodeStmt { var = new NodeStmtPrint() { str = expr } };                        
+                    return new NodeStmtPrint() { str = expr };
                 }
                 else
                 {
-                    Console.Error.WriteLine("Print currently only supports strings. Line " + token5.line);
+                    Console.Error.WriteLine("Expected something to print. Line " + token5.line);
                     Environment.Exit(1);
                     return null;
                 }
@@ -501,11 +562,11 @@ public class Parser
                         var if_pred = parse_if_pred();
                         if (if_pred != null)
                         {
-                            return new NodeStmt { var = new NodeStmtIf() { checks = checks, stmt = stmt, pred = if_pred } };
+                            return new NodeStmtIf() { checks = checks, stmt = stmt, pred = if_pred };
                         }
                         else
                         {
-                            return new NodeStmt { var = new NodeStmtIf() { checks = checks, stmt = stmt } };
+                            return new NodeStmtIf() { checks = checks, stmt = stmt };
                         }
                     }
                     else
@@ -522,9 +583,9 @@ public class Parser
                     return null;
                 }
             }
-            else if (peek() is Token t3 && t3.type == TokenType.else_)
+            else if (token.type == TokenType.else_)
             {
-                Console.Error.WriteLine("There is an else with no if attached to it on line " + t3.line);
+                Console.Error.WriteLine("There is an else with no if attached to it on line " + token.line);
                 Environment.Exit(1);
                 return null;
             }
@@ -537,9 +598,11 @@ public class Parser
                     Token? end = _tokens[index].type == TokenType.semi ? consume() : (_tokens[index].type == TokenType.close_paren ? _tokens[index] : null);
                     if (end == null)
                     {
-                        try_consume_err(TokenType.semi);
+                        Console.Error.WriteLine("Expected ';' after assignment on line " + token6.line);
+                        Environment.Exit(1);
+                        return null;
                     }
-                    return new NodeStmt { var = new NodeStmtAssign() { ident = token, expr = expr } };
+                    return new NodeStmtAssign() { ident = token, expr = expr };
                 }
                 else
                 {
@@ -547,6 +610,23 @@ public class Parser
                     Console.Error.WriteLine("Invalid Expression on line " + token6.line);
                     Environment.Exit(1);
                     return null;
+                }
+            }
+            else if (token.type == TokenType.ident && peek(1) is Token token7 && token7.type == TokenType.open_paren)
+            {
+                consume();
+                consume();
+                if (parse_expr() is var expr && expr != null)
+                {
+                    try_consume_err(TokenType.close_paren);
+                    try_consume_err(TokenType.semi);
+                    return new NodeStmtCall() { ident = token, expr = expr };
+                }
+                else
+                {
+                    try_consume_err(TokenType.close_paren);
+                    try_consume_err(TokenType.semi);
+                    return new NodeStmtCall() { ident = token };
                 }
             }
             else if (token.type == TokenType.while_)
@@ -563,8 +643,8 @@ public class Parser
                 try_consume_err(TokenType.close_paren);
                 if (parse_stmt() is var stmt && stmt != null)
                 {
-                    if (!stmt.var.IsT2) Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
-                    return new NodeStmt { var = new NodeStmtWhile() { checks = checks, stmt = stmt } };
+                    if (stmt is NodeScope scope) Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
+                    return new NodeStmtWhile() { checks = checks, stmt = stmt };
                 }
                 return null;
             }
@@ -602,7 +682,7 @@ public class Parser
                     Environment.Exit(1);
                     return null;
                 }
-                return new NodeStmt { var = new NodeStmtFor() { let = identstmt, checks = checks, assign = assignstmt, stmt = stmt } };
+                return new NodeStmtFor() { let = identstmt, checks = checks, assign = assignstmt, stmt = stmt };
             }
             else
             {
@@ -688,4 +768,4 @@ public class Parser
         return _tokens[index++];
     }
 
-}
+    }
