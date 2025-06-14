@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 class Generator
@@ -23,7 +24,7 @@ class Generator
     }
 
 
-    public string gen_string(string input)
+    public (string, int) gen_string(string input)
     {
         input += "\n";
         string miniout = "";
@@ -31,13 +32,8 @@ class Generator
         {
             miniout += "    mov rax, " + gen_string_hex(input) + "\n";
             miniout += "    push rax\n";
-            miniout += "    mov rax, 1\n";
-            miniout += "    mov rdi, 1\n";
-            miniout += "    mov rsi, rsp\n";
-            miniout += "    mov rdx, " + input.Length + "\n";
-            miniout += "    syscall\n";
-            miniout += "    add rsp, 8\n";
-            return miniout;
+
+            return (miniout, 8);
         }
         else
         {
@@ -60,14 +56,7 @@ class Generator
                 miniout += "    push rax\n";
             }
 
-
-            miniout += "    mov rax, 1\n";
-            miniout += "    mov rdi, 1\n";
-            miniout += "    mov rsi, rsp\n";
-            miniout += "    mov rdx, " + len + "\n";
-            miniout += "    syscall\n";
-            miniout += "    add rsp, " + ((fullChunks + (remainder > 0 ? 1 : 0)) * 8) + "\n";
-            return miniout;
+            return (miniout, (fullChunks + (remainder > 0 ? 1 : 0)) * 8);
         }
     }
 
@@ -143,6 +132,7 @@ class Generator
             miniout += gen_expr(div.lhs);
             miniout += pop("rax");
             miniout += pop("rbx");
+            miniout += "    cqo\n";
             miniout += "    div rbx\n";
             miniout += push("rax");
         }
@@ -322,8 +312,32 @@ class Generator
         }
         else if (stmt.var.TryPickT3(out var print, out _))
         {
-            if (print == null || print.str.value == null) return miniout;
-            miniout += gen_string(print.str.value);
+            if (print == null) return miniout;
+            if (print.str.TryPickT0(out var str, out _))
+            {
+                if (str.value == null) return miniout;
+                var (text, integer) = gen_string(str.value);
+                miniout += text;
+                miniout += "    mov rax, 1\n";
+                miniout += "    mov rdi, 1\n";
+                miniout += "    mov rsi, rsp\n";
+                miniout += "    mov rdx, " + (str.value.Length + 1) + "\n";
+                miniout += "    syscall\n";
+                miniout += "    add rsp, " + integer + "\n";
+            }
+            else if (print.str.TryPickT1(out var expr, out _))
+            {
+                if (expr == null) return miniout;
+                miniout += gen_expr(expr);
+                miniout += pop("rdi");
+                miniout += "    lea rsi, [buffer]\n";
+                miniout += "    call int_to_string\n";
+                miniout += "    mov rdx, rax\n";
+                miniout += "    mov rax, 1\n";
+                miniout += "    mov rdi, 1\n";
+                miniout += "    mov rsi, buffer\n";
+                miniout += "    syscall\n";
+                }
             return miniout;
         }
         else if (stmt.var.TryPickT4(out var if_, out _))
@@ -388,7 +402,7 @@ class Generator
             miniout += gen_stmt(for_.stmt);
             miniout += gen_stmt(for_.assign);
             miniout += gen_checks(for_.checks, ifnot, strt, true);
-            scopes.Add(1);
+            scopes.Add(vars.Count-1);
             miniout += end_scope();
             miniout += label + ":\n";
             return miniout;
@@ -405,14 +419,64 @@ class Generator
 
     public string gen_prog()
     {
-        string output = "global _start\n_start:\n";
-        //        output += "    mov rax, 0x0A6F6C6C6548\n    push rax\n    mov rax, 1\n    mov rdi, 1\n    mov rsi, rsp\n    mov rdx, 6\n    syscall\n";
+        string output = "section .bss\nbuffer: resb 20\n\nsection .text\nglobal _start\n_start:\n";
         foreach (Parser.NodeStmt stmt in _root.stmts)
         {
             output += gen_stmt(stmt);
         }
 
-        output += "    mov rax, 60\n    mov rdi, 0\n    syscall";
+        output += "    mov rax, 60\n    mov rdi, 0\n    syscall\n";
+        output += """    
+int_to_string:
+    ; Eğer sayı 0 ise direkt '0' ve '\n' yaz
+    cmp rdi, 0
+    jne convert
+    mov byte [rsi], '0'
+    mov byte [rsi+1], 0xA    ; '\n' karakteri
+    mov byte [rsi+2], 0      ; null terminator
+    mov rax, 3               ; toplam uzunluk: 3 (0 + \n + null)
+    ret
+
+convert:
+    xor rcx, rcx          ; sayaç
+    mov rbx, rdi          ; sayıyı kopyala
+
+loop:
+    mov rdx, 0
+    mov rax, rbx
+    mov rdi, 10
+    div rdi               ; rax = rbx/10, rdx = rbx%10
+    add dl, '0'
+    mov [rsi + rcx], dl
+    inc rcx
+    mov rbx, rax
+    cmp rbx, 0
+    jne loop
+
+    mov byte [rsi + rcx], 0
+
+    ; Ters çevir
+    mov rdi, rcx
+    dec rdi
+    xor rbx, rbx
+
+reverse_loop:
+    cmp rbx, rdi
+    jge done
+    mov al, [rsi + rbx]
+    mov dl, [rsi + rdi]
+    mov [rsi + rbx], dl
+    mov [rsi + rdi], al
+    inc rbx
+    dec rdi
+    jmp reverse_loop
+
+done:
+    mov byte [rsi + rcx], 10
+    inc rcx
+    mov rax, rcx
+    ret
+""";
         return output;
     }
 

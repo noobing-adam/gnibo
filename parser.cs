@@ -98,7 +98,7 @@ public class Parser
 
     public class NodeStmtPrint
     {
-        public Token str;
+        public OneOf<Token, NodeExpr> str;
     }
 
     public class NodeStmtLet
@@ -408,6 +408,7 @@ public class Parser
                     if (t1.type == TokenType.ident && stmt_let.ident.value == t1.value)
                     {
                         Console.Error.WriteLine("Identifier " + t1.value + " has a circular definition. on line " + t1.line);
+                        Console.Error.WriteLine("Possibly missing a ';'");
                         Environment.Exit(1);
                         return null;
                     }
@@ -458,9 +459,15 @@ public class Parser
                 if (peek() is Token t1 && t1.type == TokenType.string_lit)
                 {
                     consume();
-                    consume();
+                    try_consume_err(TokenType.close_paren);
                     try_consume_err(TokenType.semi);
                     return new NodeStmt { var = new NodeStmtPrint() { str = t1 } };
+                }
+                else if (parse_expr() is var expr && expr != null)
+                {
+                    try_consume_err(TokenType.close_paren);
+                    try_consume_err(TokenType.semi);
+                    return new NodeStmt { var = new NodeStmtPrint() { str = expr } };                        
                 }
                 else
                 {
@@ -527,7 +534,11 @@ public class Parser
                 consume();
                 if (parse_expr() is var expr && expr != null)
                 {
-                    try_consume_err(TokenType.semi);
+                    Token? end = _tokens[index].type == TokenType.semi ? consume() : (_tokens[index].type == TokenType.close_paren ? _tokens[index] : null);
+                    if (end == null)
+                    {
+                        try_consume_err(TokenType.semi);
+                    }
                     return new NodeStmt { var = new NodeStmtAssign() { ident = token, expr = expr } };
                 }
                 else

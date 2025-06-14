@@ -37,7 +37,7 @@ public struct Token
 }
 
 
-class Program
+class Gnibo
 {
 
     static void Main(string[] args)
