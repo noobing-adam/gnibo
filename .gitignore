@@ -3,3 +3,5 @@ out
 out.asm
 out.o
 test.cs
+bin/
+obj/
