@@ -32,7 +32,13 @@ public class Parser
 
     public class NodeTerm
     {
-        public OneOf<NodeTermIntLit, NodeTermIdent, NodeTermParen> var;
+        public OneOf<NodeTermIntLit, NodeTermIdent, NodeTermParen, NodeTermFnCall> var;
+    }
+
+    public class NodeTermFnCall
+    {
+        public Token name;
+        public List<NodeExpr>? args;
     }
 
     public class NodeTermIntLit
@@ -86,7 +92,7 @@ public class Parser
 
     public class NodeStmtCall : NodeStmt
     {
-        public required Token ident;
+        public required Token fname;
         public NodeExpr? expr;
     }
 
@@ -189,6 +195,20 @@ public class Parser
         else if (try_consume(TokenType.ident) is Token token2)
         {
             return new NodeTerm() { var = new NodeTermIdent { ident = token2 } };
+        }
+        else if (try_consume(TokenType.fname) is Token token3)
+        {
+            try_consume_err(TokenType.open_paren);
+            var args = new List<NodeExpr>();
+            while (parse_expr() is var expr)
+            {
+                if (expr == null) break;
+                args.Add(expr);
+                try_consume(TokenType.comma);
+            }
+            NodeTerm term = new NodeTerm() { var = new NodeTermFnCall { name = token3, args = args } };
+            try_consume_err(TokenType.close_paren);
+            return term;
         }
         else if (try_consume(TokenType.open_paren) is Token t2)
         {
@@ -447,7 +467,7 @@ public class Parser
             else if (token.type == TokenType.fn)
             {
                 consume();
-                var name = try_consume_err(TokenType.ident);
+                var name = try_consume_err(TokenType.fname);
                 if (name == null) return null;
                 try_consume_err(TokenType.open_paren);
                 List<Token?> args = new List<Token?>();
@@ -612,7 +632,7 @@ public class Parser
                     return null;
                 }
             }
-            else if (token.type == TokenType.ident && peek(1) is Token token7 && token7.type == TokenType.open_paren)
+            else if (token.type == TokenType.fname && peek(1) is Token token7 && token7.type == TokenType.open_paren)
             {
                 consume();
                 consume();
@@ -620,13 +640,13 @@ public class Parser
                 {
                     try_consume_err(TokenType.close_paren);
                     try_consume_err(TokenType.semi);
-                    return new NodeStmtCall() { ident = token, expr = expr };
+                    return new NodeStmtCall() { fname = token, expr = expr };
                 }
                 else
                 {
                     try_consume_err(TokenType.close_paren);
                     try_consume_err(TokenType.semi);
-                    return new NodeStmtCall() { ident = token };
+                    return new NodeStmtCall() { fname = token };
                 }
             }
             else if (token.type == TokenType.while_)
@@ -643,7 +663,7 @@ public class Parser
                 try_consume_err(TokenType.close_paren);
                 if (parse_stmt() is var stmt && stmt != null)
                 {
-                    if (stmt is NodeScope scope) Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
+                    if (stmt is NodeScope scope) { } else Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
                     return new NodeStmtWhile() { checks = checks, stmt = stmt };
                 }
                 return null;

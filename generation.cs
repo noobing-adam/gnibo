@@ -74,7 +74,7 @@ class Generator
             if (vars.Find(x => x.name == term_ident.ident.value) is Var ident)
             {
                 miniout += "    mov rax, QWORD [rsp + " + (stack_size - ident.stack_loc - 1) * 8 + "]\n";
-                miniout += push("QWORD [rsp + " + (stack_size - ident.stack_loc - 1) * 8 + "]");
+                miniout += push("rax");
             }
             else
             {
@@ -86,6 +86,19 @@ class Generator
         else if (term.var.TryPickT2(out var term_parent, out _))
         {
             miniout += gen_expr(term_parent.expr);
+        }
+        else if (term.var.TryPickT3(out var termFnCall, out _))
+        {
+            if (termFnCall.args != null)
+                foreach (var arg in termFnCall.args)
+                    miniout += gen_expr(arg);
+            stack_size++;
+            miniout += "    call " + termFnCall.name.value + "\n";
+            if (termFnCall.args != null)
+                foreach (var arg in termFnCall.args)
+                    miniout += pop("rbx");
+            miniout += push("rax");
+            stack_size--;
         }
         return miniout;
     }
@@ -414,7 +427,7 @@ class Generator
         }
         else if (stmt is Parser.NodeStmtFunc func)
         {
-            funcs.Add(new Tuple<Token, Parser.NodeStmt>(func.name, func.stmt));
+            funcs.Add(new Tuple<List<Token?>, Token, Parser.NodeStmt>(func.args, func.name, func.stmt));
             return miniout;
         }
         else if (stmt is Parser.NodeStmtReturn ret)
@@ -444,7 +457,7 @@ class Generator
                 miniout += gen_expr(call.expr);
                 miniout += pop("rax");
             }
-            miniout += "    call " + call.ident.value + "\n";
+            miniout += "    call " + call.fname.value + "\n";
             return miniout;
         }
         else
@@ -457,11 +470,19 @@ class Generator
     }
 
 
-    public string gen_function(Tuple<Token, Parser.NodeStmt> func)
+    public string gen_function(Tuple<List<Token?>, Token, Parser.NodeStmt> func)
     {
+        if(func.Item2.value == null) return "";
         string miniout = "";
-        miniout += func.Item1.value + ":\n";
-        miniout += gen_stmt(func.Item2);
+        for (int i = 0; i < func.Item1.Count; i++)
+        {
+            var t = func.Item1[i];
+            if (!t.HasValue) continue;
+            if(t.Value.value == null) continue;
+            vars.Add(new Var { name = t.Value.value, stack_loc = stack_size-func.Item1.Count+i-1 });
+        }
+        miniout += func.Item2.value + ":\n";
+        miniout += gen_stmt(func.Item3);
         return miniout;
     }
 
@@ -474,11 +495,21 @@ class Generator
         }
 
         output += "    mov rax, 60\n    mov rdi, 0\n    syscall\n";
-        foreach (Tuple<Token, Parser.NodeStmt> func in funcs)
+        foreach (Tuple<List<Token?>, Token, Parser.NodeStmt> func in funcs)
         {
             stack_size += 1;
             output += gen_function(func);
+            foreach (Token? t in func.Item1)
+            {
+                if (!t.HasValue) continue;
+                Var? v = vars.Find(a => a.name == t.Value.value);
+                if (v != null)
+                {
+                    vars.Remove(v);
+                }
+            }
             stack_size -= 1;
+
         }
         output += """    
 int_to_string:
@@ -561,7 +592,7 @@ done:
         public int stack_loc = 0;
     }
     List<Var> vars = new List<Var>();
-    List<Tuple<Token, Parser.NodeStmt>> funcs = new List<Tuple<Token, Parser.NodeStmt>>();
+    List<Tuple<List<Token?>, Token, Parser.NodeStmt>> funcs = new List<Tuple<List<Token?>, Token, Parser.NodeStmt>>();
     List<int> scopes = new List<int>();
     int label_count = 0;
 }

@@ -62,6 +62,10 @@ public class Tokenizer
                 {
                     tokens.Add(new Token() { type = TokenType.return_, line = line });
                 }
+                else if (peek() is char c2 && c2 == '(')
+                {
+                    tokens.Add(new Token() { type = TokenType.fname, value = buf, line = line });
+                }
                 else
                     tokens.Add(new Token() { type = TokenType.ident, value = buf, line = line });
                 buf = "";

@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Drawing;
 
 
 public enum TokenType
@@ -30,7 +29,8 @@ public enum TokenType
     and,
     or,
     fn,
-    return_
+    return_,
+    fname
 }
 
 public struct Token
