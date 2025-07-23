@@ -304,6 +304,45 @@ class Generator
         return miniout;
     }
 
+
+    public Parser.NodeStmt checkbreak(Parser.NodeStmt stmt, string label, string ifnot)
+    {
+        if (stmt is Parser.NodeScope scopee)
+        {
+            if (scopee.stmts != null)
+            {
+                for (int i = 0; i < scopee.stmts.Count; i++)
+                {
+                    scopee.stmts[i] = checkbreak(scopee.stmts[i], label, ifnot);
+                }
+                stmt = scopee;
+            }
+        }
+        if (stmt is Parser.NodeStmtBreak brk)
+        {
+            if (brk.type == TokenType.break_) brk.label = label;
+            else brk.label = ifnot;
+            stmt = brk;
+        }
+        else
+        if (stmt is Parser.NodeStmtIf ifstmt)
+        {
+            ifstmt.stmt = checkbreak(ifstmt.stmt, label, ifnot);
+            if (ifstmt.pred != null && ifstmt.pred.stmt != null)
+                ifstmt.pred.stmt = checkbreak(ifstmt.pred.stmt, label, ifnot);
+            stmt = ifstmt;
+        }
+        else if (stmt is Parser.NodeStmtWhile whilestmt)
+        {
+            stmt = checkbreak(whilestmt.stmt, label, ifnot);
+        }
+        else if (stmt is Parser.NodeStmtFor forstmt)
+        {
+            stmt = checkbreak(forstmt.stmt, label, ifnot);
+        }
+        return stmt;
+    }
+
     public string gen_stmt(Parser.NodeStmt stmt)
     {
         string miniout = "";
@@ -367,52 +406,14 @@ class Generator
                     miniout += "    syscall\n";
                 }
             }
-                var (text2, integer2) = gen_string("\n");
-                miniout += text2;
-                miniout += "    mov rax, 1\n";
-                miniout += "    mov rdi, 1\n";
-                miniout += "    mov rsi, rsp\n";
-                miniout += "    mov rdx, 1\n";
-                miniout += "    syscall\n";
-                miniout += "    add rsp, " + integer2 + "\n";
-/*            if (print.str.TryPickT0(out var str, out _))
-            {
-                if (str.value == null) return miniout;
-                var (text, integer) = gen_string(str.value);
-                miniout += text;
-                miniout += "    mov rax, 1\n";
-                miniout += "    mov rdi, 1\n";
-                miniout += "    mov rsi, rsp\n";
-                miniout += "    mov rdx, " + (str.value.Length + 1) + "\n";
-                miniout += "    syscall\n";
-                miniout += "    add rsp, " + integer + "\n";
-            }
-            else if (print.str.TryPickT1(out var expr, out _))
-            {
-                if (expr == null) return miniout;
-                miniout += gen_expr(expr);
-                miniout += pop("rdi");
-                miniout += "    lea rsi, [buffer]\n";
-                miniout += "    call int_to_string\n";
-                miniout += "    mov rdx, rax\n";
-                miniout += "    mov rax, 1\n";
-                miniout += "    mov rdi, 1\n";
-                miniout += "    mov rsi, buffer\n";
-                miniout += "    syscall\n";
-            }
-            else if (print.str.TryPickT2(out var exprtostr, out _))
-            {
-                miniout += gen_expr(exprtostr.expr);
-                miniout += pop("rdi");
-                miniout += "    lea rsi, [buffer]\n";
-                miniout += "    call int_to_string\n";
-                miniout += "    mov rdx, rax\n";
-                miniout += "    mov rax, 1\n";
-                miniout += "    mov rdi, 1\n";
-                miniout += "    mov rsi, buffer\n";
-                miniout += "    syscall\n";
-            }
-*/
+            var (text2, integer2) = gen_string("\n");
+            miniout += text2;
+            miniout += "    mov rax, 1\n";
+            miniout += "    mov rdi, 1\n";
+            miniout += "    mov rsi, rsp\n";
+            miniout += "    mov rdx, 1\n";
+            miniout += "    syscall\n";
+            miniout += "    add rsp, " + integer2 + "\n";
             return miniout;
         }
         else if (stmt is Parser.NodeStmtIf if_)
@@ -456,12 +457,12 @@ class Generator
         {
             string label = create_label();
             string ifnot = create_label();
-            string strt = create_label();
 
             miniout += ifnot + ":\n";
             miniout += gen_checks(while_.checks, label);
+            while_.stmt = checkbreak(while_.stmt, label, ifnot);
             miniout += gen_stmt(while_.stmt);
-            miniout += gen_checks(while_.checks, ifnot, strt, true);
+            miniout += "    jmp " + ifnot + "\n";
             miniout += label + ":\n";
             return miniout;
         }
@@ -469,14 +470,13 @@ class Generator
         {
             string label = create_label();
             string ifnot = create_label();
-            string strt = create_label();
 
             miniout += gen_stmt(for_.let);
             miniout += ifnot + ":\n";
             miniout += gen_checks(for_.checks, label);
             miniout += gen_stmt(for_.stmt);
             miniout += gen_stmt(for_.assign);
-            miniout += gen_checks(for_.checks, ifnot, strt, true);
+            miniout += "    jmp " + ifnot + "\n";
             scopes.Add(vars.Count - 1);
             miniout += end_scope();
             miniout += label + ":\n";
@@ -515,6 +515,11 @@ class Generator
                 miniout += pop("rax");
             }
             miniout += "    call " + call.fname.value + "\n";
+            return miniout;
+        }
+        else if (stmt is Parser.NodeStmtBreak brk)
+        {
+            miniout += "    jmp " + brk.label + "\n";
             return miniout;
         }
         else

@@ -66,6 +66,14 @@ public class Tokenizer
                 {
                     tokens.Add(new Token() { type = TokenType.toString, line = line });
                 }
+                else if (buf == "break")
+                {
+                    tokens.Add(new Token() { type = TokenType.break_, line = line });
+                }
+                else if (buf == "continue")
+                {
+                    tokens.Add(new Token() { type = TokenType.continue_, line = line });
+                }
                 else if (peek() is char c2 && c2 == '(')
                 {
                     tokens.Add(new Token() { type = TokenType.fname, value = buf, line = line });

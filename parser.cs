@@ -1,3 +1,4 @@
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using OneOf;
 
@@ -12,8 +13,25 @@ public class Parser
         {TokenType.open_curly, "'{'"},
         {TokenType.close_curly, "'}'"},
         {TokenType.eq, "'='"},
-        {TokenType.and, "and"},
-        {TokenType.or, "or"},
+        {TokenType.and, "'&&'"},
+        {TokenType.or, "'||'"},
+        {TokenType.gt, "'>'"},
+        {TokenType.lt, "'<'"},
+        {TokenType.plus, "'+'"},
+        {TokenType.minus, "'-'"},
+        {TokenType.star, "'*'"},
+        {TokenType.fslash, "'/'"},
+        {TokenType.comma, "','"},
+        {TokenType.int_lit, "integer literal"},
+        {TokenType.ident, "identifier"},
+        {TokenType.let, "'let'"},
+        {TokenType.print, "'print'"},
+        {TokenType.exit, "'exit'"},
+        {TokenType.if_, "'if'"},
+        {TokenType.else_, "'else'"},
+        {TokenType.while_, "'while'"},
+        {TokenType.for_, "'for'"},
+        {TokenType.fname, "function name"}
     };
 
     private List<Token> _tokens;
@@ -156,6 +174,12 @@ public class Parser
         public required List<NodeCheck> checks;
         public required NodeStmt assign;
         public required NodeStmt stmt;
+    }
+
+    public class NodeStmtBreak : NodeStmt
+    {
+        public string? label;
+        public required TokenType type;
     }
 
     public class NodeIfPred
@@ -696,7 +720,8 @@ public class Parser
                 try_consume_err(TokenType.close_paren);
                 if (parse_stmt() is var stmt && stmt != null)
                 {
-                    if (stmt is NodeScope scope) { } else Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
+                    if (stmt is NodeScope scope){}
+                    else Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
                     return new NodeStmtWhile() { checks = checks, stmt = stmt };
                 }
                 return null;
@@ -736,6 +761,12 @@ public class Parser
                     return null;
                 }
                 return new NodeStmtFor() { let = identstmt, checks = checks, assign = assignstmt, stmt = stmt };
+            }
+            else if(token.type == TokenType.break_ || token.type == TokenType.continue_)
+            {
+                consume();
+                try_consume_err(TokenType.semi);
+                return new NodeStmtBreak { type = token.type };
             }
             else
             {

@@ -32,7 +32,9 @@ public enum TokenType
     return_,
     fname,
     dot,
-    toString
+    toString,
+    break_,
+    continue_,
 }
 
 public struct Token
