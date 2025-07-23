@@ -62,6 +62,10 @@ public class Tokenizer
                 {
                     tokens.Add(new Token() { type = TokenType.return_, line = line });
                 }
+                else if (buf == "toString")
+                {
+                    tokens.Add(new Token() { type = TokenType.toString, line = line });
+                }
                 else if (peek() is char c2 && c2 == '(')
                 {
                     tokens.Add(new Token() { type = TokenType.fname, value = buf, line = line });
@@ -88,6 +92,11 @@ public class Tokenizer
             else if (c == ',')
             {
                 tokens.Add(new Token() { type = TokenType.comma, line = line });
+                consume();
+            }
+            else if (c == '.')
+            {
+                tokens.Add(new Token() { type = TokenType.dot, line = line });
                 consume();
             }
             else if (c == '(')

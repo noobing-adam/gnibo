@@ -11,7 +11,7 @@ class Generator
     public string gen_string_hex(string input)
     {
 
-        byte[] bytes = Encoding.ASCII.GetBytes(input);
+        byte[] bytes = Encoding.UTF8.GetBytes(input);
 
         ulong result = 0;
         for (int i = 0; i < bytes.Length; i++)
@@ -25,7 +25,6 @@ class Generator
 
     public (string, int) gen_string(string input)
     {
-        input += "\n";
         string miniout = "";
         if (input.Length < 8)
         {
@@ -36,22 +35,31 @@ class Generator
         }
         else
         {
-
-            int len = input.Length;
+            byte[] bytes = Encoding.UTF8.GetBytes(input);
+            int len = bytes.Length;
             int fullChunks = len / 8;
             int remainder = len % 8;
 
+            if (len < 8)
+            {
+                miniout += "    mov rax, " + gen_string_hex(input) + "\n";
+                miniout += "    push rax\n";
+                return (miniout, 8);
+            }
+
             if (remainder > 0)
             {
-                string lastPart = input.Substring(fullChunks * 8, remainder);
-                miniout += "    mov rax, " + gen_string_hex(lastPart) + "\n";
+                byte[] lastPart = new byte[remainder];
+                Array.Copy(bytes, fullChunks * 8, lastPart, 0, remainder);
+                miniout += "    mov rax, " + gen_string_hex(Encoding.UTF8.GetString(lastPart)) + "\n";
                 miniout += "    push rax\n";
             }
 
             for (int i = fullChunks - 1; i >= 0; i--)
             {
-                string part = input.Substring(i * 8, 8);
-                miniout += "    mov rax, " + gen_string_hex(part) + "\n";
+                byte[] part = new byte[8];
+                Array.Copy(bytes, i * 8, part, 0, 8);
+                miniout += "    mov rax, " + gen_string_hex(Encoding.UTF8.GetString(part)) + "\n";
                 miniout += "    push rax\n";
             }
 
@@ -331,7 +339,43 @@ class Generator
         }
         else if (stmt is Parser.NodeStmtPrint print)
         {
-            if (print.str.TryPickT0(out var str, out _))
+            foreach (var string_lit in print.str.expr)
+            {
+                if (string_lit.TryPickT0(out var lit_string, out _))
+                {
+                    if (lit_string.value == null) return miniout;
+                    var (text, integer) = gen_string(lit_string.value);
+                    miniout += text;
+                    miniout += "    mov rax, 1\n";
+                    miniout += "    mov rdi, 1\n";
+                    miniout += "    mov rsi, rsp\n";
+                    miniout += "    mov rdx, " + Encoding.UTF8.GetByteCount(lit_string.value) + "\n";
+                    miniout += "    syscall\n";
+                    miniout += "    add rsp, " + integer + "\n";
+                }
+                else if (string_lit.TryPickT1(out var expr, out _))
+                {
+                    if (expr == null) return miniout;
+                    miniout += gen_expr(expr);
+                    miniout += pop("rdi");
+                    miniout += "    lea rsi, [buffer]\n";
+                    miniout += "    call int_to_string\n";
+                    miniout += "    mov rdx, rax\n";
+                    miniout += "    mov rax, 1\n";
+                    miniout += "    mov rdi, 1\n";
+                    miniout += "    mov rsi, buffer\n";
+                    miniout += "    syscall\n";
+                }
+            }
+                var (text2, integer2) = gen_string("\n");
+                miniout += text2;
+                miniout += "    mov rax, 1\n";
+                miniout += "    mov rdi, 1\n";
+                miniout += "    mov rsi, rsp\n";
+                miniout += "    mov rdx, 1\n";
+                miniout += "    syscall\n";
+                miniout += "    add rsp, " + integer2 + "\n";
+/*            if (print.str.TryPickT0(out var str, out _))
             {
                 if (str.value == null) return miniout;
                 var (text, integer) = gen_string(str.value);
@@ -356,6 +400,19 @@ class Generator
                 miniout += "    mov rsi, buffer\n";
                 miniout += "    syscall\n";
             }
+            else if (print.str.TryPickT2(out var exprtostr, out _))
+            {
+                miniout += gen_expr(exprtostr.expr);
+                miniout += pop("rdi");
+                miniout += "    lea rsi, [buffer]\n";
+                miniout += "    call int_to_string\n";
+                miniout += "    mov rdx, rax\n";
+                miniout += "    mov rax, 1\n";
+                miniout += "    mov rdi, 1\n";
+                miniout += "    mov rsi, buffer\n";
+                miniout += "    syscall\n";
+            }
+*/
             return miniout;
         }
         else if (stmt is Parser.NodeStmtIf if_)
@@ -517,9 +574,8 @@ int_to_string:
     cmp rdi, 0
     jne convert
     mov byte [rsi], '0'
-    mov byte [rsi+1], 0xA    ; '\n' karakteri
     mov byte [rsi+2], 0      ; null terminator
-    mov rax, 3               ; toplam uzunluk: 3 (0 + \n + null)
+    mov rax, 2               ; toplam uzunluk: 3 (0 + \n + null)
     ret
 
 convert:
@@ -557,8 +613,7 @@ reverse_loop:
     jmp reverse_loop
 
 done:
-    mov byte [rsi + rcx], 10
-    inc rcx
+    mov byte [rsi + rcx], 0
     mov rax, rcx
     ret
 """;

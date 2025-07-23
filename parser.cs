@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using OneOf;
 
 public class Parser
@@ -115,7 +116,12 @@ public class Parser
 
     public class NodeStmtPrint : NodeStmt
     {
-        public OneOf<Token, NodeExpr> str;
+        public required NodeStr str;
+    }
+
+    public class NodeStr : NodeStmt
+    {
+        public required List<OneOf<Token, NodeExpr>> expr;
     }
 
     public class NodeStmtLet : NodeStmt
@@ -537,25 +543,52 @@ public class Parser
             {
                 consume();
                 consume();
-                if (peek() is Token t1 && t1.type == TokenType.string_lit)
+                var list = new List<OneOf<Token, NodeExpr>>();
+                while (true)
                 {
-                    consume();
-                    try_consume_err(TokenType.close_paren);
-                    try_consume_err(TokenType.semi);
-                    return new NodeStmtPrint() { str = t1 };
+                    if (peek() is Token t1 && t1.type == TokenType.string_lit)
+                    {
+                        consume();
+                        list.Add(t1);
+                    }
+                    else if (parse_expr() is var expr && expr != null)
+                    {
+                        if (try_consume(TokenType.dot) != null)
+                        {
+                            try_consume_err(TokenType.toString);
+                            try_consume_err(TokenType.open_paren);
+                            try_consume_err(TokenType.close_paren);
+                            list.Add(expr);
+                        }
+                        else
+                        {
+                            list.Add(expr);
+                        }
+                    }
+                    else if (try_consume(TokenType.plus) != null)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        if (peek(-1) is Token t2 && t2.type == TokenType.plus)
+                        {
+                            Console.Error.WriteLine("Couldn't find something to concatenate (Nothing after a '+'). Line " + t2.line);
+                            Environment.Exit(1);
+                            return null;
+                        }
+                        break;
+                    }
                 }
-                else if (parse_expr() is var expr && expr != null)
-                {
-                    try_consume_err(TokenType.close_paren);
-                    try_consume_err(TokenType.semi);
-                    return new NodeStmtPrint() { str = expr };
-                }
-                else
+                if (list.Count == 0)
                 {
                     Console.Error.WriteLine("Expected something to print. Line " + token5.line);
                     Environment.Exit(1);
                     return null;
                 }
+                try_consume_err(TokenType.close_paren);
+                try_consume_err(TokenType.semi);
+                return new NodeStmtPrint() { str = new NodeStr { expr = list } };
             }
             else if (try_consume(TokenType.if_) != null)
             {

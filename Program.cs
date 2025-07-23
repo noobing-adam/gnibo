@@ -30,7 +30,9 @@ public enum TokenType
     or,
     fn,
     return_,
-    fname
+    fname,
+    dot,
+    toString
 }
 
 public struct Token
