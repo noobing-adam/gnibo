@@ -1,7 +1,5 @@
-# gave up
+# I don't know what to currently do
 
-I don't know if I want to continue this project because there isn't a lot of documentation about assembly and compilers, or at least I couldn't find a lot. I am currently stuck on functions, I tried doing it in a cheeky way but it's the most unoptimized way imaginable. Sooo, bye.
-
-If I decide to continue this project in the future. Reminder to myself:
-
-Bu projeye uğraşırken ayağa kalkıp başın ağrıdığı için kafanı sıktığın anlar oldu. Geri dönmek istediğine cidden emin misin?
+My inspiration was a YouTube channel called **Pixeled**, which I only watched the "Creating a compiler from scratch" videos of.
+But now, I currently don't have any guides or anyone to help me. I was thinking about giving up, but this project keeps me sane (even though it’s also the thing that drives me insane).
+I don't think anyone will see this, but if you do, I would be interested in any kind of help. I don't usually check my emails, but please contact me there if you want: [alihamzatasova@gmail.com](alihamzatasova@gmail.com).
