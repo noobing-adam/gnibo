@@ -678,7 +678,7 @@ public class Parser
                 consume();
                 if (parse_expr() is var expr && expr != null)
                 {
-                    Token? end = _tokens[index].type == TokenType.semi ? consume() : (_tokens[index].type == TokenType.close_paren ? _tokens[index] : null);
+                    Token? end = (_tokens[index].type == TokenType.semi && _tokens[index + 1].type != TokenType.close_paren) ? consume() : (_tokens[index].type == TokenType.close_paren ? _tokens[index] : null);
                     if (end == null)
                     {
                         Console.Error.WriteLine("Expected ';' after assignment on line " + token6.line);
@@ -694,6 +694,26 @@ public class Parser
                     Environment.Exit(1);
                     return null;
                 }
+            }
+            else if (token.type == TokenType.ident && peek(1) is Token token8 && (token8.type == TokenType.plus || token8.type == TokenType.minus))
+            {
+                consume();
+                var pom = consume();
+                var pom2 = consume();
+                if (pom.type != pom2.type)
+                {
+                    Console.Error.WriteLine("Invalid Expression ("+ (tm[pom.type] + tm[pom2.type]).Replace("'", "") + ") on line " + pom.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                Token? end = (_tokens[index].type == TokenType.semi && _tokens[index + 1].type != TokenType.close_paren) ? consume() : (_tokens[index].type == TokenType.close_paren ? _tokens[index] : null);
+                if (end == null)
+                {
+                    Console.Error.WriteLine("Expected ';' after assignment on line " + token.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                return new NodeStmtAssign(){ident=token,expr=new NodeExpr{var=new NodeBinExpr{var=pom.type==TokenType.plus?new NodeBinExprAdd{lhs=new NodeExpr{var=new NodeTerm { var=new NodeTermIdent { ident=token } } },rhs=new NodeExpr { var=new NodeTerm { var=new NodeTermIntLit { int_lit=new Token { type=TokenType.int_lit, value="1" } } } }}: new NodeBinExprSub{lhs=new NodeExpr { var=new NodeTerm { var=new NodeTermIdent { ident=token } } },rhs=new NodeExpr { var=new NodeTerm { var=new NodeTermIntLit { int_lit=new Token { type=TokenType.int_lit, value="1"}}}}}}}};
             }
             else if (token.type == TokenType.fname && peek(1) is Token token7 && token7.type == TokenType.open_paren)
             {
@@ -726,7 +746,7 @@ public class Parser
                 try_consume_err(TokenType.close_paren);
                 if (parse_stmt() is var stmt && stmt != null)
                 {
-                    if (stmt is NodeScope scope){}
+                    if (stmt is NodeScope scope) { }
                     else Console.WriteLine("Statement is not a scope on line " + token.line + ". This may result in an infinite loop.");
                     return new NodeStmtWhile() { checks = checks, stmt = stmt };
                 }
@@ -768,7 +788,7 @@ public class Parser
                 }
                 return new NodeStmtFor() { let = identstmt, checks = checks, assign = assignstmt, stmt = stmt };
             }
-            else if(token.type == TokenType.break_ || token.type == TokenType.continue_)
+            else if (token.type == TokenType.break_ || token.type == TokenType.continue_)
             {
                 consume();
                 try_consume_err(TokenType.semi);
