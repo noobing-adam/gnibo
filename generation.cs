@@ -6,11 +6,17 @@ class Generator
     {
         _root = root;
     }
+        public static string ReplaceEscapes(string s)
+        {
+            s = s.Replace("\\t", "\t");
+            s = s.Replace("\\","\\");
+            s = s.Replace("\"","\"");
+            return s.Replace("\\n", "\n");
+        }
 
 
     public string gen_string_hex(string input)
     {
-
         byte[] bytes = Encoding.UTF8.GetBytes(input);
 
         ulong result = 0;
@@ -25,6 +31,7 @@ class Generator
 
     public (string, int) gen_string(string input)
     {
+        input = ReplaceEscapes(input);
         string miniout = "";
         if (input.Length < 8)
         {
@@ -470,11 +477,14 @@ class Generator
         {
             string label = create_label();
             string ifnot = create_label();
+            string obviouslyforhastobethemarginalguy = create_label();
 
             miniout += gen_stmt(for_.let);
             miniout += ifnot + ":\n";
             miniout += gen_checks(for_.checks, label);
+            for_.stmt = checkbreak(for_.stmt, label, obviouslyforhastobethemarginalguy);
             miniout += gen_stmt(for_.stmt);
+            miniout += obviouslyforhastobethemarginalguy + ":\n";
             miniout += gen_stmt(for_.assign);
             miniout += "    jmp " + ifnot + "\n";
             scopes.Add(vars.Count - 1);
@@ -550,7 +560,16 @@ class Generator
 
     public string gen_prog()
     {
-        string output = "section .bss\nbuffer: resb 20\n\nsection .text\nglobal _start\n_start:\n";
+        string output ="""
+        section .bss
+        heap_buffer: resb 65536      ; 64 KB boş yer ayır (1 byte * 65536)
+        buffer: resb 20
+        
+        section .text
+        global _start
+        _start:
+
+        """;
         foreach (Parser.NodeStmt stmt in _root.stmts)
         {
             output += gen_stmt(stmt);
@@ -575,51 +594,62 @@ class Generator
         }
         output += """    
 int_to_string:
-    ; Eğer sayı 0 ise direkt '0' ve '\n' yaz
+    ; check for zero
     cmp rdi, 0
     jne convert
     mov byte [rsi], '0'
-    mov byte [rsi+2], 0      ; null terminator
-    mov rax, 2               ; toplam uzunluk: 3 (0 + \n + null)
+    mov byte [rsi+1], 0
+    mov rax, 1
     ret
 
 convert:
-    xor rcx, rcx          ; sayaç
-    mov rbx, rdi          ; sayıyı kopyala
+    xor rcx, rcx              ; digit count
+    mov rbx, rdi              ; make a copy of rdi
+    mov r8, 0                 ; negative flag
 
-loop:
+    cmp rbx, 0
+    jge .convert_loop
+    neg rbx                   ; make positive
+    mov r8, 1                 ; remember it was negative
+
+.convert_loop:
     mov rdx, 0
     mov rax, rbx
     mov rdi, 10
-    div rdi               ; rax = rbx/10, rdx = rbx%10
+    div rdi
     add dl, '0'
     mov [rsi + rcx], dl
     inc rcx
     mov rbx, rax
     cmp rbx, 0
-    jne loop
+    jne .convert_loop
 
-    mov byte [rsi + rcx], 0
+    cmp r8, 1                 ; was it negative?
+    jne .reverse
+    mov byte [rsi + rcx], '-' ; add minus at end (to be reversed)
+    inc rcx
 
-    ; Ters çevir
+.reverse:
+    mov byte [rsi + rcx], 0   ; null terminator
+
+    ; reverse the string in-place
     mov rdi, rcx
     dec rdi
-    xor rbx, rbx
+    xor rbx, rbx              ; rbx = left index
 
-reverse_loop:
+.reverse_loop:
     cmp rbx, rdi
-    jge done
+    jge .done
     mov al, [rsi + rbx]
     mov dl, [rsi + rdi]
     mov [rsi + rbx], dl
     mov [rsi + rdi], al
     inc rbx
     dec rdi
-    jmp reverse_loop
+    jmp .reverse_loop
 
-done:
-    mov byte [rsi + rcx], 0
-    mov rax, rcx
+.done:
+    mov rax, rcx              ; return length in rax
     ret
 """;
         return output;

@@ -93,6 +93,7 @@ class Gnibo
         stdin.Write("nasm -f elf64 out.asm -o out.o\n");
         stdin.Write("ld out.o -o out\n");
         stdin.Write("./out\n");
+        stdin.Write(string.Join(" ", args.Skip(1)));
         stdin.Write("echo $?");
 
         stdin.Close();
@@ -111,12 +112,5 @@ class Gnibo
             Console.Error.WriteLine("Gnibo currently does not support floating point operations.");
             Console.ResetColor();
         }
-
-        // dotnet run -- main.nob
-
-
-        // umarım daha lazım olmaz ama önlem:
-        // cd "/mnt/c/Users/Aliha/Desktop/My Projects/I don't think i have the knowledge to do this/mycompiler"
-        // nasm -felf64 out.asm -o out.o && ld out.o -o out; ./out; echo $?
     }
 }

@@ -218,45 +218,51 @@ public class Parser
 
     public NodeTerm? parse_term()
     {
-        if (try_consume(TokenType.int_lit) is Token token)
-        {
-            return new NodeTerm() { var = new NodeTermIntLit { int_lit = token } };
-        }
-        else if (try_consume(TokenType.ident) is Token token2)
-        {
-            return new NodeTerm() { var = new NodeTermIdent { ident = token2 } };
-        }
-        else if (try_consume(TokenType.fname) is Token token3)
-        {
-            try_consume_err(TokenType.open_paren);
-            var args = new List<NodeExpr>();
-            while (parse_expr() is var expr)
-            {
-                if (expr == null) break;
-                args.Add(expr);
-                try_consume(TokenType.comma);
-            }
-            NodeTerm term = new NodeTerm() { var = new NodeTermFnCall { name = token3, args = args } };
-            try_consume_err(TokenType.close_paren);
-            return term;
-        }
-        else if (try_consume(TokenType.open_paren) is Token t2)
+        if (try_consume(TokenType.minus) != null)
         {
             var expr = parse_expr();
-            if (expr == null)
+            if (expr == null) return null;
+            return new NodeTerm { var = new NodeTermParen { expr = new NodeExpr { var = new NodeBinExpr { var = new NodeBinExprMulti { lhs = expr, rhs = new NodeExpr { var = new NodeTerm { var = new NodeTermIntLit { int_lit = new Token { type = TokenType.int_lit, value = "-1" } } } } } } } } };
+        }
+        else if (try_consume(TokenType.int_lit) is Token token && token.value != null)
             {
-                Console.WriteLine("Expected expression inside the parentheses on line " + t2.line);
-                Environment.Exit(1);
+                return new NodeTerm() { var = new NodeTermIntLit { int_lit = token } };
+            }
+            else if (try_consume(TokenType.ident) is Token token2)
+            {
+                return new NodeTerm() { var = new NodeTermIdent { ident = token2 } };
+            }
+            else if (try_consume(TokenType.fname) is Token token3)
+            {
+                try_consume_err(TokenType.open_paren);
+                var args = new List<NodeExpr>();
+                while (parse_expr() is var expr)
+                {
+                    if (expr == null) break;
+                    args.Add(expr);
+                    try_consume(TokenType.comma);
+                }
+                NodeTerm term = new NodeTerm() { var = new NodeTermFnCall { name = token3, args = args } };
+                try_consume_err(TokenType.close_paren);
+                return term;
+            }
+            else if (try_consume(TokenType.open_paren) is Token t2)
+            {
+                var expr = parse_expr();
+                if (expr == null)
+                {
+                    Console.WriteLine("Expected expression inside the parentheses on line " + t2.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                try_consume_err(TokenType.close_paren);
+                NodeTerm term = new NodeTerm() { var = new NodeTermParen() { expr = expr } };
+                return term;
+            }
+            else
+            {
                 return null;
             }
-            try_consume_err(TokenType.close_paren);
-            NodeTerm term = new NodeTerm() { var = new NodeTermParen() { expr = expr } };
-            return term;
-        }
-        else
-        {
-            return null;
-        }
 
     }
 
