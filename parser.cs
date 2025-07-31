@@ -148,6 +148,12 @@ public class Parser
         public NodeExpr? expr;
     }
 
+    public class NodeStmtString : NodeStmt
+    {
+        public Token ident;
+        public required NodeStr str;
+    }
+
     public class NodeStmtIf : NodeStmt
     {
         public required List<NodeCheck> checks;
@@ -500,6 +506,57 @@ public class Parser
                 try_consume_err(TokenType.semi);
                 return stmt_let;
             }
+            else if (token.type == TokenType.string_ && peek(1) is Token token5 && token5.type == TokenType.ident && peek(2) is Token token6 && token6.type == TokenType.eq)
+            {
+                consume();
+                var ident = consume();
+                consume();
+                var list = new List<OneOf<Token, NodeExpr>>();
+                while (true)
+                {
+                    if (peek() is Token t1 && t1.type == TokenType.string_lit)
+                    {
+                        consume();
+                        list.Add(t1);
+                    }
+                    else if (parse_expr() is var expr && expr != null)
+                    {
+                        if (try_consume(TokenType.dot) != null)
+                        {
+                            try_consume_err(TokenType.toString);
+                            try_consume_err(TokenType.open_paren);
+                            try_consume_err(TokenType.close_paren);
+                            list.Add(expr);
+                        }
+                        else
+                        {
+                            list.Add(expr);
+                        }
+                    }
+                    else if (try_consume(TokenType.plus) != null)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        if (peek(-1) is Token t2 && t2.type == TokenType.plus)
+                        {
+                            Console.Error.WriteLine("Couldn't find something to concatenate (Nothing after a '+'). Line " + t2.line);
+                            Environment.Exit(1);
+                            return null;
+                        }
+                        break;
+                    }
+                }
+                if (list.Count == 0)
+                {
+                    Console.Error.WriteLine("Expected something to print. Line " + token5.line);
+                    Environment.Exit(1);
+                    return null;
+                }
+                try_consume_err(TokenType.semi);
+                return new NodeStmtString() { ident = ident, str = new NodeStr { expr = list } };
+            }
             else if (token.type == TokenType.fn)
             {
                 consume();
@@ -569,7 +626,7 @@ public class Parser
                 Environment.Exit(1);
                 return null;
             }
-            else if (token.type == TokenType.print && peek(1) is Token token5 && token5.type == TokenType.open_paren)
+            else if (token.type == TokenType.print && peek(1) is Token toke && toke.type == TokenType.open_paren)
             {
                 consume();
                 consume();
@@ -612,7 +669,7 @@ public class Parser
                 }
                 if (list.Count == 0)
                 {
-                    Console.Error.WriteLine("Expected something to print. Line " + token5.line);
+                    Console.Error.WriteLine("Expected something to print. Line " + toke.line);
                     Environment.Exit(1);
                     return null;
                 }
@@ -672,7 +729,7 @@ public class Parser
                 Environment.Exit(1);
                 return null;
             }
-            else if (token.type == TokenType.ident && peek(1) is Token token6 && token6.type == TokenType.eq)
+            else if (token.type == TokenType.ident && peek(1) is Token tok && tok.type == TokenType.eq)
             {
                 consume();
                 consume();
@@ -681,7 +738,7 @@ public class Parser
                     Token? end = (_tokens[index].type == TokenType.semi && _tokens[index + 1].type != TokenType.close_paren) ? consume() : (_tokens[index].type == TokenType.close_paren ? _tokens[index] : null);
                     if (end == null)
                     {
-                        Console.Error.WriteLine("Expected ';' after assignment on line " + token6.line);
+                        Console.Error.WriteLine("Expected ';' after assignment on line " + tok.line);
                         Environment.Exit(1);
                         return null;
                     }
@@ -690,7 +747,7 @@ public class Parser
                 else
                 {
                     parse_checks(new NodeExpr() { var = new NodeTerm { var = new NodeTermIdent { ident = token } } });
-                    Console.Error.WriteLine("Invalid Expression on line " + token6.line);
+                    Console.Error.WriteLine("Invalid Expression on line " + tok.line);
                     Environment.Exit(1);
                     return null;
                 }
@@ -702,7 +759,7 @@ public class Parser
                 var pom2 = consume();
                 if (pom.type != pom2.type)
                 {
-                    Console.Error.WriteLine("Invalid Expression ("+ (tm[pom.type] + tm[pom2.type]).Replace("'", "") + ") on line " + pom.line);
+                    Console.Error.WriteLine("Invalid Expression (" + (tm[pom.type] + tm[pom2.type]).Replace("'", "") + ") on line " + pom.line);
                     Environment.Exit(1);
                     return null;
                 }
@@ -713,7 +770,7 @@ public class Parser
                     Environment.Exit(1);
                     return null;
                 }
-                return new NodeStmtAssign(){ident=token,expr=new NodeExpr{var=new NodeBinExpr{var=pom.type==TokenType.plus?new NodeBinExprAdd{lhs=new NodeExpr{var=new NodeTerm { var=new NodeTermIdent { ident=token } } },rhs=new NodeExpr { var=new NodeTerm { var=new NodeTermIntLit { int_lit=new Token { type=TokenType.int_lit, value="1" } } } }}: new NodeBinExprSub{lhs=new NodeExpr { var=new NodeTerm { var=new NodeTermIdent { ident=token } } },rhs=new NodeExpr { var=new NodeTerm { var=new NodeTermIntLit { int_lit=new Token { type=TokenType.int_lit, value="1"}}}}}}}};
+                return new NodeStmtAssign() { ident = token, expr = new NodeExpr { var = new NodeBinExpr { var = pom.type == TokenType.plus ? new NodeBinExprAdd { lhs = new NodeExpr { var = new NodeTerm { var = new NodeTermIdent { ident = token } } }, rhs = new NodeExpr { var = new NodeTerm { var = new NodeTermIntLit { int_lit = new Token { type = TokenType.int_lit, value = "1" } } } } } : new NodeBinExprSub { lhs = new NodeExpr { var = new NodeTerm { var = new NodeTermIdent { ident = token } } }, rhs = new NodeExpr { var = new NodeTerm { var = new NodeTermIntLit { int_lit = new Token { type = TokenType.int_lit, value = "1" } } } } } } } };
             }
             else if (token.type == TokenType.fname && peek(1) is Token token7 && token7.type == TokenType.open_paren)
             {

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 
 class Generator
@@ -6,27 +7,22 @@ class Generator
     {
         _root = root;
     }
-        public static string ReplaceEscapes(string s)
-        {
-            s = s.Replace("\\t", "\t");
-            s = s.Replace("\\","\\");
-            s = s.Replace("\"","\"");
-            return s.Replace("\\n", "\n");
-        }
+    public static string ReplaceEscapes(string s)
+    {
+        s = s.Replace("\\t", "\t");
+        s = s.Replace("\\", "\\");
+        s = s.Replace("\"", "\"");
+        return s.Replace("\\n", "\n");
+    }
 
 
     public string gen_string_hex(string input)
     {
-        byte[] bytes = Encoding.UTF8.GetBytes(input);
-
-        ulong result = 0;
-        for (int i = 0; i < bytes.Length; i++)
-        {
-            result |= (ulong)bytes[i] << (8 * i);
-        }
-
-        return $"0x{result:X}";
+        var bytes = Encoding.ASCII.GetBytes(input);
+        Array.Reverse(bytes); // çünkü küçük endian
+        return "0x" + BitConverter.ToString(bytes).Replace("-", "");
     }
+
 
 
     public (string, int) gen_string(string input)
@@ -90,6 +86,10 @@ class Generator
             {
                 miniout += "    mov rax, QWORD [rsp + " + (stack_size - ident.stack_loc - 1) * 8 + "]\n";
                 miniout += push("rax");
+            }
+            else if (string_vars.FindIndex(s => s.name == term_ident.ident.value) is int offset && offset != -1)
+            {
+                miniout += $"    lea rdi, [heap_buffer + {offset * 1000}]\n";
             }
             else
             {
@@ -200,7 +200,7 @@ class Generator
             }
             miniout += gen_stmt(stmt2);
         }
-        if(!donethat) miniout += end_scope();
+        if (!donethat) miniout += end_scope();
         return miniout;
     }
 
@@ -237,7 +237,7 @@ class Generator
                 miniout += start + ":\n";
             }
         }
-    return miniout;
+        return miniout;
     }
 
     public string gen_check(Parser.NodeCheck check, string label, bool isNegated = false, string type = "and", string start = "")
@@ -354,6 +354,93 @@ class Generator
     {
         string miniout = "";
 
+        if (stmt.GetType() == typeof(Parser.NodeStmtString))
+        {
+            Console.WriteLine("Generating string definition for: " + ((Parser.NodeStmtString)stmt).ident.value);
+            Parser.NodeStmtString strdefine = (Parser.NodeStmtString)stmt;
+            if (vars.Find(x => x.name == strdefine.ident.value) != null || string_vars.Find(x => x.name == strdefine.ident.value) != null)
+            {
+                Console.WriteLine("Identifier " + strdefine.ident.value + " already declared");
+                Environment.Exit(1);
+                return miniout;
+            }
+            if (strdefine.ident.value == null) return miniout;
+            string_vars.Add(new StringVar { name = strdefine.ident.value, heap_loc = 1 });
+
+            // Toplam offset hesapla
+            int offset = 0;
+            for (int i = 0; i < string_vars.Count - 1; i++)
+            {
+                // Burada stringlengths[i] nasıl tutuluyorsa ona göre al, örneğin:
+                // offset += stringlengths[i];
+                // Eğer stringlengths runtime'da bellekte tutuluyorsa, C# tarafında toplamını tahmin et
+                // veya assembly'ye toplamı hesaplatacak kod ekle (karmaşık)
+                // Burada basitçe 1000 * i yerine offset kullanacağız.
+                offset += 1000; // varsayalım her string ortalama 1000 bayt (geçici)
+            }
+
+            foreach (var m in strdefine.str.expr)
+            {
+                if (m.TryPickT0(out var litstring, out _) && litstring.value != null)
+                {
+                    if (litstring.value.Length > 8)
+                    {
+                        for (int i = 0; i < litstring.value.Length; i += 8)
+                        {
+                            int len = Math.Min(8, litstring.value.Length - i);
+                            string chunk = litstring.value.Substring(i, len);
+                            miniout += "    mov rbx, " + gen_string_hex(chunk) + "\n";
+                            miniout += $"    mov eax, dword [stringlengths + 4 * {string_vars.Count - 1}]\n";
+                            miniout += "    mov rcx, " + offset + "\n";
+                            miniout += "    add rcx, rax\n";
+                            miniout += "    lea rdi, [heap_buffer + rcx]\n";
+                            miniout += "    mov [rdi], rbx\n";
+                            miniout += "    mov rcx, " + litstring.value.Length + "\n";
+
+                            miniout += $"    mov eax, ecx\n";
+                            miniout += $"    add eax, dword [stringlengths + 4 * {string_vars.Count - 1}]\n";
+                            miniout += $"    mov dword [stringlengths + 4 * {string_vars.Count - 1}], eax\n";
+                        }
+                    }
+                    else
+                    {
+                        miniout += "    mov rbx, " + gen_string_hex(litstring.value) + "\n";
+                        miniout += $"    mov eax, dword [stringlengths + 4 * {string_vars.Count - 1}]\n";
+                        miniout += "    mov rcx, " + offset + "\n";
+                        miniout += "    add rcx, rax\n";
+                        miniout += "    lea rdi, [heap_buffer + rcx]\n";
+                        miniout += "    mov [rdi], rbx\n";
+                        miniout += "    mov rcx, " + litstring.value.Length + "\n";
+
+                        miniout += $"    mov eax, ecx\n";
+                        miniout += $"    add eax, dword [stringlengths + 4 * {string_vars.Count - 1}]\n";
+                        miniout += $"    mov dword [stringlengths + 4 * {string_vars.Count - 1}], eax\n";
+
+                    }
+                }
+                else if (m.TryPickT1(out var expre, out _))
+                {
+                    miniout += gen_expr(expre);      // Değeri RDI'ya alır (pop "rdi")
+                    miniout += pop("rdi");
+
+                    miniout += $"    mov eax, dword [stringlengths + 4 * {string_vars.Count - 1}]\n";
+                    miniout += "    mov rcx, " + offset + "\n";
+                    miniout += "    add rcx, rax\n";
+                    miniout += "    lea rsi, [heap_buffer + rcx]\n";
+                    miniout += "    call int_to_string\n";      // rax = uzunluk
+                    miniout += "    mov rdx, rax\n";
+
+                    miniout += $"    mov eax, dword [stringlengths + 4 * {string_vars.Count - 1}]\n";
+                    miniout += "    add eax, edx\n";            // rdx -> edx 32 bit
+                    miniout += $"    mov dword [stringlengths + 4 * {string_vars.Count - 1}], eax\n";
+
+                    miniout += $"    mov ecx, eax\n";
+                    miniout += $"    add ecx, {offset}\n";
+                    miniout += "    lea rsi, [heap_buffer + rcx]\n";
+                }
+            }
+            return miniout;
+        }
         if (stmt is Parser.NodeStmtExit exit)
         {
             if (exit.expr == null) exit.expr = new Parser.NodeExpr() { var = new Parser.NodeTerm { var = new Parser.NodeTermIntLit { int_lit = new Token() { type = TokenType.int_lit, value = "0" } } } };
@@ -401,7 +488,29 @@ class Generator
                 }
                 else if (string_lit.TryPickT1(out var expr, out _))
                 {
-                    if (expr == null) return miniout;
+                    if (expr.var.TryPickT0(out var term, out _) &&
+                        term.var.TryPickT1(out var ident, out _)) // T1 = NodeTermIdent
+                    {
+                        var name = ident.ident.value!;
+                        if (string_vars.Any(s => s.name == name))
+                        {
+                            int offset = string_vars.FindIndex(s => s.name == name);
+
+                            // string'in uzunluğunu al
+                            miniout += $"    mov edx, dword [stringlengths + 4 * {offset}]\n";
+                            miniout += "    mov edx, edx\n";
+                            // adresi al
+                            miniout += $"    lea rsi, [heap_buffer + {offset * 1000}]\n";
+
+                            miniout += "    mov rax, 1\n";
+                            miniout += "    mov rdi, 1\n";
+                            miniout += "    syscall\n";
+
+                            continue; // burası önemli! int gibi işlemeye geçmesin
+                        }
+                    }
+
+                    // eğer string değişken değilse → int to string gibi işlem
                     miniout += gen_expr(expr);
                     miniout += pop("rdi");
                     miniout += "    lea rsi, [buffer]\n";
@@ -411,17 +520,9 @@ class Generator
                     miniout += "    mov rdi, 1\n";
                     miniout += "    mov rsi, buffer\n";
                     miniout += "    syscall\n";
+                    return miniout;
                 }
             }
-            var (text2, integer2) = gen_string("\n");
-            miniout += text2;
-            miniout += "    mov rax, 1\n";
-            miniout += "    mov rdi, 1\n";
-            miniout += "    mov rsi, rsp\n";
-            miniout += "    mov rdx, 1\n";
-            miniout += "    syscall\n";
-            miniout += "    add rsp, " + integer2 + "\n";
-            return miniout;
         }
         else if (stmt is Parser.NodeStmtIf if_)
         {
@@ -538,31 +639,32 @@ class Generator
             Environment.Exit(1);
             return "This Shouldn't Happen";
         }
-
+        return miniout;
     }
 
 
     public string gen_function(Tuple<List<Token?>, Token, Parser.NodeStmt> func)
+{
+    if (func.Item2.value == null) return "";
+    string miniout = "";
+    for (int i = 0; i < func.Item1.Count; i++)
     {
-        if(func.Item2.value == null) return "";
-        string miniout = "";
-        for (int i = 0; i < func.Item1.Count; i++)
-        {
-            var t = func.Item1[i];
-            if (!t.HasValue) continue;
-            if(t.Value.value == null) continue;
-            vars.Add(new Var { name = t.Value.value, stack_loc = stack_size-func.Item1.Count+i-1 });
-        }
-        miniout += func.Item2.value + ":\n";
-        miniout += gen_stmt(func.Item3);
-        return miniout;
+        var t = func.Item1[i];
+        if (!t.HasValue) continue;
+        if (t.Value.value == null) continue;
+        vars.Add(new Var { name = t.Value.value, stack_loc = stack_size - func.Item1.Count + i - 1 });
     }
+    miniout += func.Item2.value + ":\n";
+    miniout += gen_stmt(func.Item3);
+    return miniout;
+}
 
     public string gen_prog()
     {
         string output ="""
         section .bss
         heap_buffer: resb 65536      ; 64 KB boş yer ayır (1 byte * 65536)
+        stringlengths: resd 64  ; 64 adet 4 byte integer (toplam 256 byte)
         buffer: resb 20
         
         section .text
@@ -681,7 +783,13 @@ convert:
         public required string name;
         public int stack_loc = 0;
     }
+    class StringVar
+    {
+        public required string name;
+        public required int heap_loc;
+    }
     List<Var> vars = new List<Var>();
+    List<StringVar> string_vars = new List<StringVar>();
     List<Tuple<List<Token?>, Token, Parser.NodeStmt>> funcs = new List<Tuple<List<Token?>, Token, Parser.NodeStmt>>();
     List<int> scopes = new List<int>();
     int label_count = 0;

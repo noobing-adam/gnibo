@@ -159,7 +159,7 @@ exit(0);
 
 ## 📅 Roadmap
 
-* [ ] String variables
+* [ ] String variables (currently variables are added. But only them, no reassignment, concatenation or anything.)
 * [ ] More standard functions (e.g., `length()`, `input()`)
 * [ ] Type inference or hints
 * [ ] Object.method syntax (`x.toString()` for all values)

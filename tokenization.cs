@@ -34,6 +34,10 @@ public class Tokenizer
                 {
                     tokens.Add(new Token() { type = TokenType.let, line = line });
                 }
+                else if (buf == "string")
+                {
+                    tokens.Add(new Token() { type = TokenType.string_, line = line });
+                }
                 else if (buf == "print")
                 {
                     tokens.Add(new Token() { type = TokenType.print, line = line });

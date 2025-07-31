@@ -35,6 +35,7 @@ public enum TokenType
     toString,
     break_,
     continue_,
+    string_
 }
 
 public struct Token
